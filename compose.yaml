@@ -1,0 +1,59 @@
+# Todas as credenciais vêm do arquivo .env (copie de .env.example).
+# Nenhuma senha fica escrita aqui.
+#
+#   docker compose up -d                 -> sobe Oracle + RabbitMQ (rode a API com ./gradlew bootRun)
+#   docker compose up -d rabbitmq        -> só o RabbitMQ (quando usar o Oracle da FIAP)
+#   docker compose --profile app up -d --build  -> sobe tudo, inclusive a API em container
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: beaconsync-oracle
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_ADMIN_PASSWORD:?defina ORACLE_ADMIN_PASSWORD no .env}
+      APP_USER: ${DB_USERNAME:?defina DB_USERNAME no .env}
+      APP_USER_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: beaconsync-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?defina RABBITMQ_USERNAME no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no .env}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build: .
+    container_name: beaconsync-api
+    env_file: .env
+    environment:
+      DB_URL: jdbc:oracle:thin:@//oracle:1521/FREEPDB1
+      RABBITMQ_HOST: rabbitmq
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  oracle-data:
