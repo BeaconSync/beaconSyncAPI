@@ -37,7 +37,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 
-    // Etapa 3: RabbitMQ (spring-boot-starter-amqp)
+    // Mensageria: RabbitMQ (opção A do requisito 5)
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
     // Etapa 4: Spring AI (spring-ai-starter-model-openai)
 
     compileOnly 'org.projectlombok:lombok'
