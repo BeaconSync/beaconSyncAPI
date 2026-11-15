@@ -18,6 +18,10 @@ repositories {
     mavenCentral()
 }
 
+ext {
+    set('springAiVersion', "2.0.1")
+}
+
 dependencies {
     // Web + validação
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
@@ -40,13 +44,20 @@ dependencies {
     // Mensageria: RabbitMQ (opção A do requisito 5)
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
-    // Etapa 4: Spring AI (spring-ai-starter-model-openai)
+    // IA generativa: Spring AI com OpenAI (triagem e boletim)
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
 }
 
 // Gera só o jar executável (app.jar), sem o "-plain.jar"
