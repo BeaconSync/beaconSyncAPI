@@ -1,5 +1,6 @@
 package br.com.fiap.beaconsync.pessoa;
 
+import br.com.fiap.beaconsync.alerta.AlertaService;
 import br.com.fiap.beaconsync.auditoria.AuditoriaService;
 import br.com.fiap.beaconsync.auth.AuthorizationService;
 import br.com.fiap.beaconsync.distrito.Distrito;
@@ -21,6 +22,7 @@ public class EnderecoService {
     private final DistritoRepository distritoRepository;
     private final AuthorizationService authorizationService;
     private final AuditoriaService auditoriaService;
+    private final AlertaService alertaService;
 
     @Transactional(readOnly = true)
     public List<EnderecoResponseDTO> listar(Long pessoaId) {
@@ -47,6 +49,10 @@ public class EnderecoService {
         return new EnderecoResponseDTO(endereco, atualId);
     }
 
+    /**
+     * Define onde a pessoa está agora. É esse endereço que entra no mapa e no
+     * resgate; a troca também atualiza os alertas ativos.
+     */
     @Transactional
     public PessoaResponseDTO definirAtual(Long pessoaId, EnderecoAtualRequestDTO dto) {
         authorizationService.exigirVinculoAtivo(pessoaId);
@@ -54,6 +60,7 @@ public class EnderecoService {
         Endereco endereco = buscarEnderecoDaPessoa(pessoaId, dto.enderecoId());
 
         pessoa.setEnderecoAtual(endereco);
+        alertaService.sincronizarEnderecoAtual(pessoa);
 
         auditoriaService.registrar(authorizationService.usuarioLogadoId(), "ALTERAR_ENDERECO_ATUAL",
                 "PESSOA_VULNERAVEL", pessoaId, "Endereço atual: " + endereco.getId());
@@ -75,6 +82,7 @@ public class EnderecoService {
                 enderecoId, "Endereço da pessoa " + pessoaId);
     }
 
+    /** Monta um endereço novo a partir do DTO (usado também no cadastro da pessoa). */
     public Endereco montar(EnderecoRequestDTO dto) {
         Distrito distrito = distritoRepository.findById(dto.distritoId())
                 .orElseThrow(() -> new RegraNegocioException("Distrito " + dto.distritoId() + " não existe."));
