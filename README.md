@@ -4,7 +4,7 @@ API da CitizenTech **BeaconSync** (Global Solution, Java Advanced – FIAP).
 
 Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risco, e é justamente quem as equipes de resgate não sabem onde está. O BeaconSync é um cadastro prévio de pessoas vulneráveis (idosos acamados, pessoas com deficiência, bebês, dependentes de aparelhos médicos) que, no momento do alerta, vira um mapa por distrito de quem precisa ser resgatado primeiro e de onde a pessoa está de verdade.
 
-> **Status:** etapa 3 de 5 (alertas por distrito, mapa de risco e eventos no RabbitMQ). As seções marcadas com _(etapa N)_ serão preenchidas conforme o projeto avança.
+> **Status:** etapa 4 de 5 (Spring AI na triagem e no boletim, fila e etapas do resgate).
 
 ## Tecnologias
 
@@ -12,7 +12,7 @@ Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risc
 - Spring Data JPA + Oracle Database + Flyway
 - Spring Security + JWT (HS256)
 - RabbitMQ: opção **A** do requisito 5
-- Spring AI com OpenAI _(etapa 4)_
+- Spring AI 2.0 com OpenAI (triagem dos pedidos de ajuda e boletim do órgão)
 - springdoc-openapi (Swagger)
 - Docker Compose (Oracle Free 23ai + RabbitMQ)
 
@@ -32,6 +32,8 @@ cp .env.example .env        # Windows (PowerShell): copy .env.example .env
 ```
 
 Abra o `.env` e troque as senhas de exemplo. Use só letras e números.
+
+A IA é opcional. Para ligar, use `AI_PROVIDER=openai` e coloque sua chave em `OPENAI_API_KEY`. Com `AI_PROVIDER=none` (padrão), tudo funciona com a triagem por regra e o boletim por modelo de texto.
 
 ### 2. Suba o banco e o RabbitMQ
 
@@ -81,6 +83,8 @@ Depois suba só o RabbitMQ (`docker compose up -d rabbitmq`) e rode a API normal
 | `Could not resolve placeholder 'DB_PASSWORD'` | O `.env` não existe ou falta a variável. Refaça o passo 1. |
 | `ORA-01017: invalid username/password` depois de trocar a senha no `.env` | O usuário do Oracle é criado só na primeira subida. Rode `docker compose down -v` e suba de novo (apaga os dados locais). |
 | `Connection refused` na porta 1521 | O Oracle ainda está iniciando. Espere o `healthy` em `docker compose ps`. |
+| `OpenAI API key must be set` | `OPENAI_API_KEY` está vazio no `.env`. Sem IA, use `OPENAI_API_KEY=sem-chave`. |
+| Log `IA indisponível na triagem` | A chave é inválida ou a OpenAI não respondeu. A triagem segue pela regra base. |
 
 ## Segredos e dados sensíveis
 
@@ -100,9 +104,9 @@ Criados automaticamente na subida da API, se ainda não existirem. A senha de to
 | --- | --- | --- | --- |
 | responsavel@beaconsync.com | RESPONSAVEL | | Cadastro de pessoas, endereços e vínculos |
 | responsavel2@beaconsync.com | RESPONSAVEL | | Pedido de vínculo para uma pessoa já cadastrada |
-| voluntario@beaconsync.com | VOLUNTARIO | | Disponibilidade e resgates _(etapa 4)_ |
-| bombeira@beaconsync.com | PROFISSIONAL | Corpo de Bombeiros | Ocorrências e resgates _(etapa 4)_ |
-| agente@beaconsync.com | AGENTE_ORGAO | Defesa Civil | Alertas, mapa e lista por distrito |
+| voluntario@beaconsync.com | VOLUNTARIO | | Disponibilidade e participação em resgates |
+| bombeira@beaconsync.com | PROFISSIONAL | Corpo de Bombeiros | Participação em resgates e mudança de etapa |
+| agente@beaconsync.com | AGENTE_ORGAO | Defesa Civil | Alertas, mapa, boletim, fila, equipe e etapas do resgate |
 | demo@beaconsync.com | RESPONSAVEL | | Responsável pelas 49 pessoas de demonstração |
 
 Com `SEED_DEMO=true` (padrão), a API também cria 49 pessoas de demonstração ligadas a `demo@beaconsync.com`: 32 na Lapa, 12 na Barra Funda e 5 na Vila Leopoldina. Assim o mapa mostra todas as cores.
@@ -130,7 +134,7 @@ Com `SEED_DEMO=true` (padrão), a API também cria 49 pessoas de demonstração 
 
 Erros de validação (400) trazem a lista `campos` com `campo` e `mensagem`. Conflitos (409) trazem `recursoId`: por exemplo, ao cadastrar um CPF que já existe, vem o id da pessoa para pedir vínculo.
 
-## Endpoints principais _(etapas 2 a 4)_
+## Endpoints principais
 
 Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 
@@ -163,6 +167,16 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | POST | `/api/v1/alertas/{id}/respostas` | RESPONSAVEL | SEGURA, PRECISA_AJUDA ou SEM_CONTATO |
 | GET | `/api/v1/notificacoes` | logado | Seus avisos (alerta e andamento do resgate) |
 | PATCH | `/api/v1/notificacoes/{id}/lida` | logado | Marca o aviso como lido |
+| GET | `/api/v1/alertas/{id}/boletim` | AGENTE_ORGAO | Boletim do alerta gerado por IA, com os números brutos |
+| GET | `/api/v1/ocorrencias` | AGENTE_ORGAO, PROFISSIONAL | Fila do órgão na ordem de prioridade (`?status=`, `?alertaId=`) |
+| GET | `/api/v1/ocorrencias/{id}` | AGENTE_ORGAO, PROFISSIONAL, VOLUNTARIO | Detalhe do resgate (voluntário só se escalado) |
+| PATCH | `/api/v1/ocorrencias/{id}/prioridade` | AGENTE_ORGAO | Muda a ordem sugerida, com justificativa auditada |
+| POST | `/api/v1/ocorrencias/{id}/equipe` | AGENTE_ORGAO | Escala profissional ou voluntário disponível |
+| PATCH | `/api/v1/ocorrencias/{id}/status` | AGENTE_ORGAO, PROFISSIONAL | EM_ANDAMENTO, CONCLUIDA ou CANCELADA |
+| GET | `/api/v1/ocorrencias/minhas` | PROFISSIONAL, VOLUNTARIO | Resgates em que você foi escalado |
+| GET | `/api/v1/resgatistas/me` | PROFISSIONAL, VOLUNTARIO | Seu perfil de resgatista |
+| PATCH | `/api/v1/resgatistas/me/disponibilidade` | PROFISSIONAL, VOLUNTARIO | Informa se está disponível e em qual distrito |
+| GET | `/api/v1/resgatistas/disponiveis` | AGENTE_ORGAO | Quem pode ser escalado (`?distritoId=`) |
 
 ### Exemplo: cadastrar uma pessoa
 
@@ -227,7 +241,45 @@ A cor do distrito considera só quem ainda não está seguro (pendente, precisa 
 
 A prioridade sugerida de cada pedido soma gravidade (40), tempo em aberto (30, até 120 minutos) e cor do distrito (30). Os pesos também ficam no `application.properties`. O sistema sugere a ordem, mas o agente sempre tem a palavra final.
 
-## Funcionalidade com Spring AI _(etapa 4)_
+## Funcionalidade com Spring AI
+
+A IA entra em dois pontos do fluxo do resgate, e nenhum deles é um chat solto. Nos dois casos a IA sugere e o agente decide.
+
+### 1. Triagem do pedido de ajuda
+
+Quando a família responde "precisa de ajuda" ou "não consegui contato", ela pode escrever um relato. Exemplo: "a água entrou no quarto, ela usa oxigênio e o cilindro dura umas 4 horas".
+
+1. A resposta publica `resposta.registrada`, e o `TriagemListener` consome a mensagem.
+2. O `TriagemService` lê os dados numa transação curta e chama o LLM **fora da transação**, para não segurar conexão do banco durante a IA.
+3. O `TriagemIaService` usa o `ChatClient` do Spring AI com **saída estruturada**: `.entity(TriagemResultado, spec -> spec.validateSchema())` devolve gravidade (1 a 5), risco imediato, necessidades e um resumo para a equipe.
+4. O resultado é gravado na situação, a ocorrência é aberta e a prioridade sugerida é calculada.
+
+**Cuidados:**
+- **Privacidade:** o LLM recebe só tipo de vulnerabilidade, idade, necessidades, situação, tempo desde o alerta e o relato. Nome, CPF e endereço nunca vão para a IA.
+- **Segurança da decisão:** a IA pode subir a gravidade da regra base, nunca baixar. Uma pessoa dependente de oxigênio continua com gravidade 5, mesmo que o modelo erre.
+- **Injeção de prompt:** o relato vai entre aspas triplas, e o prompt de sistema manda ignorar instruções dentro dele.
+- **Fallback:** sem chave, com timeout ou com resposta inválida, vale a regra base (`origemTriagem: REGRA`). Com IA, `origemTriagem: IA`.
+
+### 2. Boletim do alerta
+
+`GET /api/v1/alertas/{id}/boletim` (AGENTE_ORGAO) calcula os números por distrito no banco: sem resposta, pedem ajuda, sem contato, acamados ou dependentes de aparelho, resgates em andamento e concluídos. Só esses números vão para o LLM, que devolve um boletim curto, por exemplo: "Lapa (vermelho): 14 sem resposta, 3 acamadas, 2 resgates em andamento". A resposta traz o texto e os números brutos lado a lado, para o agente conferir. Sem IA, o mesmo boletim sai por um modelo de texto (`origem: MODELO`).
+
+## Resgate
+
+Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
+
+- **Fila:** `GET /ocorrencias` ordena pela prioridade manual do agente (1 = primeiro) e depois pelo score sugerido, recalculado na hora (gravidade, tempo em aberto e cor do distrito).
+- **Equipe:** cada resgate pode ter vários resgatistas, e o mesmo resgatista pode atuar em vários resgates. A equipe junta profissionais (de qualquer órgão) e voluntários disponíveis, e quem é escalado recebe um aviso.
+- **Etapas:** `SOLICITADA → EM_ANDAMENTO → CONCLUIDA`, ou `CANCELADA`. Só inicia com equipe. Cada mudança grava histórico e avisa a família pelo RabbitMQ. `CONCLUIDA` marca a pessoa como resgatada, e o distrito muda de cor no mapa.
+- **Privacidade:** o voluntário vê só o resgate em que foi escalado. Toda consulta de detalhe fica no `AuditLog`.
+
+### Como testar o resgate (continuação do fluxo do alerta)
+
+1. Como `voluntario@` e depois como `bombeira@`, `PATCH /api/v1/resgatistas/me/disponibilidade` com `{"disponivel": true, "distritoBaseId": 48}`.
+2. Como `agente@`, `GET /api/v1/ocorrencias`: os pedidos de ajuda aparecem na ordem de prioridade, com o resumo da triagem.
+3. `GET /api/v1/resgatistas/disponiveis` lista os dois. Use `POST /api/v1/ocorrencias/{id}/equipe` com `{"resgatistaId": ..., "funcao": "condutor do barco"}` para o voluntário e repita para a bombeira.
+4. `PATCH /api/v1/ocorrencias/{id}/status` com `{"status": "EM_ANDAMENTO"}` e depois `{"status": "CONCLUIDA"}`.
+5. Veja o mapa (a contagem cai), o boletim (`GET /alertas/{id}/boletim`) e, como `demo@`, as notificações de cada etapa.
 
 ## Modelagem
 
