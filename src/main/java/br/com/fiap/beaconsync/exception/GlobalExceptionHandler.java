@@ -1,5 +1,6 @@
 package br.com.fiap.beaconsync.exception;
 
+import br.com.fiap.beaconsync.ia.distrito.IaIndisponivelException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,11 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(IaIndisponivelException.class)
+    public ResponseEntity<ErroPadrao> tratarIa(IaIndisponivelException e, HttpServletRequest request) {
+        return resposta(HttpStatus.valueOf(e.getStatus()), "Falha no Serviço de Análise", e.getMessage(), request);
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroValidacao> tratarValidacao(MethodArgumentNotValidException e, HttpServletRequest request) {
