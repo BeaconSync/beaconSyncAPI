@@ -1,6 +1,7 @@
 package br.com.fiap.beaconsync.alerta;
 
 import br.com.fiap.beaconsync.pessoa.StatusVinculo;
+import br.com.fiap.beaconsync.pessoa.TipoVulnerabilidade;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,6 +31,17 @@ public interface SituacaoNoAlertaRepository extends JpaRepository<SituacaoNoAler
             group by s.endereco.distrito.id, s.situacao""")
     List<ContagemDistrito> contarPorDistrito(@Param("alertaId") Long alertaId,
                                              @Param("situacoes") Collection<Situacao> situacoes);
+
+    /** Boletim: pessoas sem segurança de certos tipos (ex.: acamados), por distrito. */
+    @Query("""
+            select s.endereco.distrito.id as distritoId, count(s) as total
+            from SituacaoNoAlerta s
+            where s.alerta.id = :alertaId and s.situacao in :situacoes
+              and s.pessoa.tipoVulnerabilidade in :tipos
+            group by s.endereco.distrito.id""")
+    List<ContagemPorDistrito> contarPorTipoEDistrito(@Param("alertaId") Long alertaId,
+                                                     @Param("situacoes") Collection<Situacao> situacoes,
+                                                     @Param("tipos") Collection<TipoVulnerabilidade> tipos);
 
     /** Situações em alertas ativos das pessoas de quem o usuário é responsável. */
     @Query("""
