@@ -4,7 +4,18 @@ API da CitizenTech **BeaconSync** (Global Solution, Java Advanced – FIAP).
 
 Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risco, e é justamente quem as equipes de resgate não sabem onde está. O BeaconSync é um cadastro prévio de pessoas vulneráveis (idosos acamados, pessoas com deficiência, bebês, dependentes de aparelhos médicos) que, no momento do alerta, vira um mapa por distrito de quem precisa ser resgatado primeiro e de onde a pessoa está de verdade.
 
-> **Status:** etapa 4 de 5 (Spring AI na triagem e no boletim, fila e etapas do resgate).
+> **Vídeo pitch:** _cole aqui o link do YouTube (não listado)_
+
+## Onde está cada requisito
+
+| Requisito | Onde está no projeto |
+| --- | --- |
+| 01. API REST do domínio | 14 entidades relacionadas, CRUD com Spring Data JPA e paginação ([Endpoints](#endpoints-principais), [Modelagem](#modelagem)) |
+| 02. Validação e erros | Bean Validation nos DTOs e `GlobalExceptionHandler` com respostas padronizadas ([Formato de erro](#formato-padrão-de-erro)) |
+| 03. Segurança | Spring Security + JWT com 4 papéis e endpoints protegidos por papel ([Autenticação](#autenticação-jwt)) |
+| 04. Spring AI | Triagem do pedido de ajuda e boletim do alerta, integrados ao fluxo do resgate ([Spring AI](#funcionalidade-com-spring-ai)) |
+| 05. Arquitetura distribuída | **Opção A: RabbitMQ**, com eventos publicados e consumidos de forma assíncrona ([RabbitMQ](#arquitetura-distribuída-opção-a-rabbitmq)) |
+| 06. Documentação e integração | Swagger, este README e a API consumida pelo app em React Native / Expo ([Mobile](#integração-com-o-app-mobile-react-native--expo)) |
 
 ## Tecnologias
 
@@ -281,6 +292,59 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 4. `PATCH /api/v1/ocorrencias/{id}/status` com `{"status": "EM_ANDAMENTO"}` e depois `{"status": "CONCLUIDA"}`.
 5. Veja o mapa (a contagem cai), o boletim (`GET /alertas/{id}/boletim`) e, como `demo@`, as notificações de cada etapa.
 
+## Integração com o app Mobile (React Native / Expo)
+
+### Endereço da API no app
+
+| Onde o app roda | URL base |
+| --- | --- |
+| Celular com Expo Go | `http://IP_DO_COMPUTADOR:8080/api/v1` (o celular e o computador na mesma rede Wi-Fi) |
+| Emulador Android | `http://10.0.2.2:8080/api/v1` |
+| Expo web (navegador) | `http://localhost:8080/api/v1` |
+
+No celular, `localhost` aponta para o próprio celular, por isso é preciso usar o IP do computador. No Windows, o IP aparece em `ipconfig` (linha "Endereço IPv4"). Se o celular não conectar, libere a porta 8080 no Firewall do Windows. O CORS já vem liberado para o Expo web (`CORS_ALLOWED_ORIGINS`).
+
+### Como o app conversa com a API
+
+```js
+const API = "http://192.168.0.10:8080/api/v1";
+
+// Login: guarde o token (ex.: expo-secure-store)
+const resposta = await fetch(`${API}/auth/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, senha }),
+});
+const { token, usuario } = await resposta.json();
+
+// Demais chamadas: envie o token
+const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
+  headers: { Authorization: `Bearer ${token}` },
+}).then((r) => r.json());
+// Listas paginadas vêm como { content: [...], page: { number, size, totalElements, totalPages } }
+```
+
+- Use `usuario.papel` do login para decidir quais telas mostrar.
+- Em erro, mostre o campo `mensagem`. Em erro 400, use também a lista `campos` para marcar os campos inválidos do formulário.
+- As notificações são lidas por consulta: durante um alerta, chame `GET /notificacoes` a cada 30 segundos, por exemplo.
+- O mapa (`GET /alertas/{id}/mapa`) traz o nome, o código e a cor de cada distrito. O app pinta o GeoJSON dos distritos de São Paulo casando pelo nome.
+
+### Telas e rotas
+
+| Perfil | Tela | Rotas |
+| --- | --- | --- |
+| Todos | Login e cadastro | `POST /auth/login`, `POST /auth/registro`, `GET /usuarios/me` |
+| Todos | Avisos | `GET /notificacoes`, `PATCH /notificacoes/{id}/lida` |
+| Responsável | Minhas pessoas e cadastro | `GET /pessoas`, `POST /pessoas`, `PUT /pessoas/{id}`, `GET /distritos` |
+| Responsável | Endereços e "onde está agora" | `GET/POST /pessoas/{id}/enderecos`, `PUT /pessoas/{id}/endereco-atual` |
+| Responsável | Pedidos de vínculo | `POST /pessoas/{id}/vinculos`, `GET /vinculos/pendentes`, `PATCH /vinculos/{id}` |
+| Responsável | Alerta ativo: responder | `GET /alertas/ativos/meus`, `POST /alertas/{id}/respostas` |
+| Agente do órgão | Alertas e mapa | `POST /alertas`, `GET /alertas?status=ATIVO`, `GET /alertas/{id}/mapa`, `PATCH /alertas/{id}/encerrar` |
+| Agente do órgão | Distrito, fila e boletim | `GET /alertas/{id}/distritos/{d}/pessoas`, `GET /ocorrencias`, `GET /alertas/{id}/boletim` |
+| Agente do órgão | Resgate | `GET /ocorrencias/{id}`, `POST /ocorrencias/{id}/equipe`, `PATCH /ocorrencias/{id}/prioridade`, `PATCH /ocorrencias/{id}/status` |
+| Voluntário e profissional | Disponibilidade e meus resgates | `PATCH /resgatistas/me/disponibilidade`, `GET /ocorrencias/minhas`, `GET /ocorrencias/{id}` |
+| Profissional | Etapa do resgate | `PATCH /ocorrencias/{id}/status` |
+
 ## Modelagem
 
 14 entidades (15 tabelas, contando a ligação alerta–distrito) no pacote `br.com.fiap.beaconsync`, com o schema versionado pelo Flyway em `src/main/resources/db/migration`.
@@ -316,4 +380,6 @@ Não há deploy público até o momento.
 
 ## Declaração de uso de IA
 
-_Rascunho, revisar antes da entrega:_ o grupo usou o Claude (Anthropic) como apoio no planejamento da arquitetura, na modelagem e na geração de parte do código. Todo o código foi revisado, testado e ajustado pelos integrantes, que respondem pelo conteúdo entregue.
+**No desenvolvimento.** O grupo usou o Claude (Anthropic) como assistente para planejar a arquitetura, sugerir a modelagem e gerar partes do código, da documentação e das mensagens de commit. Todo o conteúdo gerado foi lido, testado e ajustado pelos integrantes, que entendem e respondem pelo que foi entregue.
+
+**No produto.** A API usa o Spring AI com modelos da OpenAI em duas funcionalidades: a triagem dos pedidos de ajuda e o boletim do alerta. Nome, CPF e endereço das pessoas vulneráveis não são enviados ao modelo, e a decisão final é sempre de um agente humano.
