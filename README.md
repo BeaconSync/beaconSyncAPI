@@ -10,9 +10,9 @@ Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risc
 
 | Requisito | Onde está no projeto |
 | --- | --- |
-| 01. API REST do domínio | 14 entidades relacionadas, CRUD com Spring Data JPA e paginação ([Endpoints](#endpoints-principais), [Modelagem](#modelagem)) |
+| 01. API REST do domínio | 16 entidades relacionadas, CRUD com Spring Data JPA e paginação ([Endpoints](#endpoints-principais), [Modelagem](#modelagem)) |
 | 02. Validação e erros | Bean Validation nos DTOs e `GlobalExceptionHandler` com respostas padronizadas ([Formato de erro](#formato-padrão-de-erro)) |
-| 03. Segurança | Spring Security + JWT com 4 papéis e endpoints protegidos por papel ([Autenticação](#autenticação-jwt)) |
+| 03. Segurança | Spring Security + JWT com 4 papéis, endpoints protegidos por papel e refresh token com rotação ([Autenticação](#autenticação-jwt)) |
 | 04. Spring AI | Triagem do pedido de ajuda e boletim do alerta, integrados ao fluxo do resgate ([Spring AI](#funcionalidade-com-spring-ai)) |
 | 05. Arquitetura distribuída | **Opção A: RabbitMQ**, com eventos publicados e consumidos de forma assíncrona ([RabbitMQ](#arquitetura-distribuída-opção-a-rabbitmq)) |
 | 06. Documentação e integração | Swagger, este README e a API consumida pelo app em React Native / Expo ([Mobile](#integração-com-o-app-mobile-react-native--expo)) |
@@ -24,16 +24,15 @@ Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risc
 - Spring Security + JWT (HS256)
 - RabbitMQ: opção **A** do requisito 5
 - Spring AI 2.0 com OpenAI (triagem dos pedidos de ajuda e boletim do órgão)
+- RestClient para a API Python de análise de distrito (IA da disciplina de IoT)
 - springdoc-openapi (Swagger)
 - Docker Compose (Oracle Free 23ai + RabbitMQ)
-
 ## Como rodar
 
 ### Pré-requisitos
 
 - Java 25 (JDK)
 - Docker Desktop (com Docker Compose)
-
 ### 1. Configure as variáveis de ambiente
 
 Nenhuma senha está no código. Tudo fica num arquivo `.env`, que **não** vai para o Git.
@@ -68,7 +67,6 @@ Na subida, o Flyway cria as tabelas e carrega os 5 órgãos e os 96 distritos de
 - Distritos: http://localhost:8080/api/v1/distritos
 - Saúde da API: http://localhost:8080/actuator/health
 - Painel do RabbitMQ: http://localhost:15672 (usuário e senha do seu `.env`)
-
 ### Alternativa: tudo em Docker (sem instalar Java)
 
 ```bash
@@ -96,17 +94,29 @@ Depois suba só o RabbitMQ (`docker compose up -d rabbitmq`) e rode a API normal
 | `Connection refused` na porta 1521 | O Oracle ainda está iniciando. Espere o `healthy` em `docker compose ps`. |
 | `OpenAI API key must be set` | `OPENAI_API_KEY` está vazio no `.env`. Sem IA, use `OPENAI_API_KEY=sem-chave`. |
 | Log `IA indisponível na triagem` | A chave é inválida ou a OpenAI não respondeu. A triagem segue pela regra base. |
+| Análise de distrito responde 503 | `IA_SERVICE_API_KEY` está vazia ou a API Python está fora do ar. O resto da API funciona normalmente. |
+
+### Testes automatizados
+
+Os testes de JWT, refresh token e análise de distrito usam mocks e H2 em memória, sem Oracle, RabbitMQ ou IA:
+
+```bash
+./gradlew test --tests "br.com.fiap.beaconsync.auth.*" --tests "br.com.fiap.beaconsync.ia.distrito.*"   # Windows: gradlew.bat
+```
+
+O `BeaconSyncApplicationTests` sobe a aplicação inteira, então o `./gradlew test` sem filtro só passa com o Oracle e o RabbitMQ no ar.
 
 ## Segredos e dados sensíveis
 
 - Senhas, chaves e segredo do JWT existem apenas no `.env` (ignorado pelo Git) ou em variáveis de ambiente.
 - O `application.properties` só referencia as variáveis (`${DB_PASSWORD}`) e não tem valor padrão para nada sensível. Se faltar alguma, a API não sobe e o erro mostra o nome da variável.
 - O `compose.yaml` também lê tudo do `.env`.
-- O JWT é assinado com `JWT_SECRET` (mínimo de 32 caracteres; a API não sobe com menos). Não há chave `.pem` no projeto.
+- O JWT é assinado com `JWT_SECRET` (mínimo de 32 bytes UTF-8; a API não sobe com menos). Não há chave `.pem` no projeto.
+- O refresh token é aleatório (256 bits) e o banco guarda só o hash SHA-256 dele, nunca o valor.
+- A chave da API Python (`IA_SERVICE_API_KEY`) fica só no Java e vai no header `X-API-Key`; o app Mobile nunca a recebe.
 - As senhas dos usuários são guardadas só como hash BCrypt, e a dos usuários de teste vem de `SEED_PASSWORD`.
 - O CPF sai mascarado nas respostas (`***.982.247-**`).
 - `.env.example` é o modelo versionado, só com valores de exemplo.
-
 ## Usuários de teste
 
 Criados automaticamente na subida da API, se ainda não existirem. A senha de todos é o valor de `SEED_PASSWORD` no seu `.env` (no `.env.example`: `Teste123`).
@@ -125,12 +135,13 @@ Com `SEED_DEMO=true` (padrão), a API também cria 49 pessoas de demonstração 
 ## Autenticação (JWT)
 
 1. `POST /api/v1/auth/login` com `{"email": "...", "senha": "..."}`. A senha é conferida com o hash BCrypt.
-2. A API devolve um token assinado em HS256 com o segredo `JWT_SECRET`, válido por 2 horas. O token leva `sub` (id do usuário), `role` (papel) e `orgaoId`.
+2. A API devolve um token assinado em HS256 com o segredo `JWT_SECRET`, válido por 2 horas por padrão (`JWT_EXPIRACAO_SEGUNDOS`). O token leva `sub` (id do usuário), `role` (papel), `nome`, `email`, `jti` e `orgaoId` quando existir, além de `iss`, `iat` e `exp`. Junto vem um `refreshToken`.
 3. O app envia `Authorization: Bearer <token>` em toda chamada. No Swagger, use o botão **Authorize**.
-4. O resource server do Spring Security valida assinatura, validade e emissor, e transforma `role` em `ROLE_<PAPEL>`.
+4. O resource server do Spring Security valida assinatura, validade e emissor, e o `TokenClaimsValidator` recusa token sem `sub` numérico, sem `role` válido ou sem `iat`/`exp`. A claim `role` vira `ROLE_<PAPEL>`.
 5. `@PreAuthorize` checa o papel em cada controller. O `AuthorizationService` checa o dono do dado (ex.: só responsáveis vinculados veem a pessoa).
 6. Token ausente, inválido ou sem permissão devolve 401 ou 403 no mesmo formato de erro da API.
-
+7. Quando o token expira, o app chama `POST /api/v1/auth/refresh` com o `refreshToken` e recebe um par novo; o refresh antigo deixa de valer. Se um refresh já usado for reapresentado, a sessão inteira é revogada. A sessão dura no máximo 7 dias (`JWT_REFRESH_EXPIRACAO_SEGUNDOS`), e `POST /api/v1/auth/logout` a encerra. Detalhes em [docs/RENOVACAO_AUTOMATICA.md](docs/RENOVACAO_AUTOMATICA.md).
+8. O mesmo JWT é validado pela API .NET do grupo, com o mesmo `JWT_SECRET` e `JWT_ISSUER`. Contrato em [docs/INTEGRACAO_IA_E_TOKEN.md](docs/INTEGRACAO_IA_E_TOKEN.md).
 ### Formato padrão de erro
 
 ```json
@@ -152,7 +163,9 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | Método | Rota | Papel | Descrição |
 | --- | --- | --- | --- |
 | POST | `/api/v1/auth/registro` | público | Autocadastro de RESPONSAVEL ou VOLUNTARIO |
-| POST | `/api/v1/auth/login` | público | Devolve o JWT |
+| POST | `/api/v1/auth/login` | público | Devolve o JWT e o refresh token |
+| POST | `/api/v1/auth/refresh` | refresh token no corpo | Troca o refresh por um par novo (rotação) |
+| POST | `/api/v1/auth/logout` | refresh token no corpo | Revoga a sessão de renovação |
 | GET | `/api/v1/usuarios/me` | logado | Perfil do usuário do token |
 | GET | `/api/v1/distritos` | público | Lista paginada dos 96 distritos |
 | POST | `/api/v1/pessoas` | RESPONSAVEL | Cadastra a pessoa com o primeiro endereço (409 se o CPF já existir) |
@@ -179,6 +192,7 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | GET | `/api/v1/notificacoes` | logado | Seus avisos (alerta e andamento do resgate) |
 | PATCH | `/api/v1/notificacoes/{id}/lida` | logado | Marca o aviso como lido |
 | GET | `/api/v1/alertas/{id}/boletim` | AGENTE_ORGAO | Boletim do alerta gerado por IA, com os números brutos |
+| POST | `/api/v1/alertas/{id}/distritos/{distritoId}/analise` | AGENTE_ORGAO | Análise do distrito pela API Python (IoT), com as contagens do Java |
 | GET | `/api/v1/ocorrencias` | AGENTE_ORGAO, PROFISSIONAL | Fila do órgão na ordem de prioridade (`?status=`, `?alertaId=`) |
 | GET | `/api/v1/ocorrencias/{id}` | AGENTE_ORGAO, PROFISSIONAL, VOLUNTARIO | Detalhe do resgate (voluntário só se escalado) |
 | PATCH | `/api/v1/ocorrencias/{id}/prioridade` | AGENTE_ORGAO | Muda a ordem sugerida, com justificativa auditada |
@@ -228,7 +242,6 @@ O que é lento ou não precisa ser imediato sai da requisição e vai para filas
 - **Mensagem leva só o id:** o consumidor lê o estado atual no banco, então nunca age sobre dado velho.
 - **Idempotência:** a triagem ignora mensagem repetida da mesma resposta e ignora pedido que virou "segura".
 - **DLQ:** mensagem que falha no consumidor vai para `beaconsync.triagem.dlq` ou `beaconsync.notificacao.dlq` (via `beaconsync.events.dlx`), visível no painel do RabbitMQ.
-
 ### Como testar o fluxo do alerta
 
 1. Login com `agente@beaconsync.com`. Em `GET /api/v1/distritos?size=100`, anote os ids de Lapa, Barra Funda, Vila Leopoldina e Jaguaré (numa base nova: 48, 6, 90 e 40).
@@ -238,7 +251,6 @@ O que é lento ou não precisa ser imediato sai da requisição e vai para filas
 5. Veja no log as linhas `Triagem recebida` e no painel do RabbitMQ (http://localhost:15672) as mensagens passando.
 6. Como agente, chame o mapa de novo (a contagem cai com as respostas `SEGURA`) e `GET /alertas/{id}/distritos/{lapaId}/pessoas`: quem pediu ajuda aparece primeiro, com gravidade e resumo da triagem.
 7. Como `demo@`, `GET /api/v1/notificacoes` mostra o aviso do alerta e o do pedido de resgate registrado.
-
 ### Mapa de risco
 
 A cor do distrito considera só quem ainda não está seguro (pendente, precisa de ajuda ou sem contato) no endereço atual. A contagem é feita a cada consulta, então o distrito muda de cor sozinho. As faixas ficam no `application.properties`:
@@ -264,16 +276,26 @@ Quando a família responde "precisa de ajuda" ou "não consegui contato", ela po
 2. O `TriagemService` lê os dados numa transação curta e chama o LLM **fora da transação**, para não segurar conexão do banco durante a IA.
 3. O `TriagemIaService` usa o `ChatClient` do Spring AI com **saída estruturada**: `.entity(TriagemResultado, spec -> spec.validateSchema())` devolve gravidade (1 a 5), risco imediato, necessidades e um resumo para a equipe.
 4. O resultado é gravado na situação, a ocorrência é aberta e a prioridade sugerida é calculada.
-
-**Cuidados:**
+   **Cuidados:**
 - **Privacidade:** o LLM recebe só tipo de vulnerabilidade, idade, necessidades, situação, tempo desde o alerta e o relato. Nome, CPF e endereço nunca vão para a IA.
 - **Segurança da decisão:** a IA pode subir a gravidade da regra base, nunca baixar. Uma pessoa dependente de oxigênio continua com gravidade 5, mesmo que o modelo erre.
 - **Injeção de prompt:** o relato vai entre aspas triplas, e o prompt de sistema manda ignorar instruções dentro dele.
 - **Fallback:** sem chave, com timeout ou com resposta inválida, vale a regra base (`origemTriagem: REGRA`). Com IA, `origemTriagem: IA`.
-
 ### 2. Boletim do alerta
 
 `GET /api/v1/alertas/{id}/boletim` (AGENTE_ORGAO) calcula os números por distrito no banco: sem resposta, pedem ajuda, sem contato, acamados ou dependentes de aparelho, resgates em andamento e concluídos. Só esses números vão para o LLM, que devolve um boletim curto, por exemplo: "Lapa (vermelho): 14 sem resposta, 3 acamadas, 2 resgates em andamento". A resposta traz o texto e os números brutos lado a lado, para o agente conferir. Sem IA, o mesmo boletim sai por um modelo de texto (`origem: MODELO`).
+
+## Análise de distrito (integração com a IA de IoT)
+
+Além do Spring AI, a API integra a IA desenvolvida na disciplina de IoT: um serviço Python publicado em `IA_BASE_URL`, que usa o Gemini. Ela **não** é o requisito 04 (que é a triagem e o boletim acima); é um recurso a mais.
+
+`POST /api/v1/alertas/{alertaId}/distritos/{distritoId}/analise` (AGENTE_ORGAO), com `{"pergunta": "Como interpretar a contagem deste distrito?"}`:
+
+1. O Java confere o papel do usuário no banco e se o distrito pertence à área do alerta (404 se não pertencer).
+2. Conta as situações do distrito (precisa de ajuda, sem contato, pendente, segura, resgatada) com a mesma consulta do mapa.
+3. Envia ao Python só as contagens, o nome do distrito e a pergunta, com a chave no header `X-API-Key`. Nenhum nome, CPF, telefone ou endereço sai do Java.
+4. Confere se a resposta bate com os ids e totais enviados e devolve a análise com as fontes usadas.
+   A chamada exige HTTPS, não segue redirecionamentos e tem tempo limite (`IA_CONNECT_TIMEOUT`, `IA_READ_TIMEOUT`). Se o Python falhar, a API responde 502, 503 ou 504 sem repassar o erro externo, e o mapa continua disponível. Sem `IA_SERVICE_API_KEY`, só essa rota responde 503.
 
 ## Resgate
 
@@ -283,7 +305,6 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 - **Equipe:** cada resgate pode ter vários resgatistas, e o mesmo resgatista pode atuar em vários resgates. A equipe junta profissionais (de qualquer órgão) e voluntários disponíveis, e quem é escalado recebe um aviso.
 - **Etapas:** `SOLICITADA → EM_ANDAMENTO → CONCLUIDA`, ou `CANCELADA`. Só inicia com equipe. Cada mudança grava histórico e avisa a família pelo RabbitMQ. `CONCLUIDA` marca a pessoa como resgatada, e o distrito muda de cor no mapa.
 - **Privacidade:** o voluntário vê só o resgate em que foi escalado. Toda consulta de detalhe fica no `AuditLog`.
-
 ### Como testar o resgate (continuação do fluxo do alerta)
 
 1. Como `voluntario@` e depois como `bombeira@`, `PATCH /api/v1/resgatistas/me/disponibilidade` com `{"disponivel": true, "distritoBaseId": 48}`.
@@ -291,7 +312,6 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 3. `GET /api/v1/resgatistas/disponiveis` lista os dois. Use `POST /api/v1/ocorrencias/{id}/equipe` com `{"resgatistaId": ..., "funcao": "condutor do barco"}` para o voluntário e repita para a bombeira.
 4. `PATCH /api/v1/ocorrencias/{id}/status` com `{"status": "EM_ANDAMENTO"}` e depois `{"status": "CONCLUIDA"}`.
 5. Veja o mapa (a contagem cai), o boletim (`GET /alertas/{id}/boletim`) e, como `demo@`, as notificações de cada etapa.
-
 ## Integração com o app Mobile (React Native / Expo)
 
 ### Endereço da API no app
@@ -308,7 +328,7 @@ No celular, `localhost` aponta para o próprio celular, por isso é preciso usar
 
 ```js
 const API = "http://192.168.0.10:8080/api/v1";
-
+ 
 // Login: guarde o token (ex.: expo-secure-store)
 const resposta = await fetch(`${API}/auth/login`, {
   method: "POST",
@@ -316,7 +336,7 @@ const resposta = await fetch(`${API}/auth/login`, {
   body: JSON.stringify({ email, senha }),
 });
 const { token, usuario } = await resposta.json();
-
+ 
 // Demais chamadas: envie o token
 const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
   headers: { Authorization: `Bearer ${token}` },
@@ -328,7 +348,6 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 - Em erro, mostre o campo `mensagem`. Em erro 400, use também a lista `campos` para marcar os campos inválidos do formulário.
 - As notificações são lidas por consulta: durante um alerta, chame `GET /notificacoes` a cada 30 segundos, por exemplo.
 - O mapa (`GET /alertas/{id}/mapa`) traz o nome, o código e a cor de cada distrito. O app pinta o GeoJSON dos distritos de São Paulo casando pelo nome.
-
 ### Telas e rotas
 
 | Perfil | Tela | Rotas |
@@ -347,7 +366,7 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 
 ## Modelagem
 
-14 entidades (15 tabelas, contando a ligação alerta–distrito) no pacote `br.com.fiap.beaconsync`, com o schema versionado pelo Flyway em `src/main/resources/db/migration`.
+16 entidades (17 tabelas, contando a ligação alerta–distrito) no pacote `br.com.fiap.beaconsync`, com o schema versionado pelo Flyway em `src/main/resources/db/migration`.
 
 | Entidade | Tabela | Papel no domínio |
 | --- | --- | --- |
@@ -364,10 +383,11 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 | Resgatista | BS_RESGATISTA | Perfil profissional ou voluntário |
 | ParticipacaoResgate | BS_PARTICIPACAO_RESGATE | Equipe do resgate (N:N com função) |
 | Notificacao / AuditLog | BS_NOTIFICACAO / BS_AUDIT_LOG | Avisos para o app e trilha de auditoria |
+| SessaoRefresh / RefreshToken | BS_SESSAO_REFRESH / BS_REFRESH_TOKEN | Sessão de renovação por login e hash de cada refresh token emitido |
 
 ## Deploy
 
-Não há deploy público até o momento.
+Não há deploy público. A API roda localmente com Docker Compose, seguindo a seção [Como rodar](#como-rodar).
 
 ## Integrantes
 
@@ -382,4 +402,4 @@ Não há deploy público até o momento.
 
 **No desenvolvimento.** O grupo usou o Claude (Anthropic) como assistente para planejar a arquitetura, sugerir a modelagem e gerar partes do código, da documentação e das mensagens de commit. Todo o conteúdo gerado foi lido, testado e ajustado pelos integrantes, que entendem e respondem pelo que foi entregue.
 
-**No produto.** A API usa o Spring AI com modelos da OpenAI em duas funcionalidades: a triagem dos pedidos de ajuda e o boletim do alerta. Nome, CPF e endereço das pessoas vulneráveis não são enviados ao modelo, e a decisão final é sempre de um agente humano.
+**No produto.** A API usa o Spring AI com modelos da OpenAI em duas funcionalidades: a triagem dos pedidos de ajuda e o boletim do alerta. Ela também chama a API Python do grupo (disciplina de IoT), que usa o Gemini para a análise de distrito e recebe só contagens agregadas. Nome, CPF e endereço das pessoas vulneráveis não são enviados a nenhum modelo, e a decisão final é sempre de um agente humano.
