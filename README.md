@@ -4,14 +4,14 @@ API da CitizenTech **BeaconSync** (Global Solution, Java Advanced – FIAP).
 
 Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risco, e é justamente quem as equipes de resgate não sabem onde está. O BeaconSync é um cadastro prévio de pessoas vulneráveis (idosos acamados, pessoas com deficiência, bebês, dependentes de aparelhos médicos) que, no momento do alerta, vira um mapa por distrito de quem precisa ser resgatado primeiro e de onde a pessoa está de verdade.
 
-> **Status:** etapa 2 de 5 (segurança com JWT, tratamento de erros e cadastro de pessoas). As seções marcadas com _(etapa N)_ serão preenchidas conforme o projeto avança.
+> **Status:** etapa 3 de 5 (alertas por distrito, mapa de risco e eventos no RabbitMQ). As seções marcadas com _(etapa N)_ serão preenchidas conforme o projeto avança.
 
 ## Tecnologias
 
 - Java 25, Spring Boot 4.1, Gradle
 - Spring Data JPA + Oracle Database + Flyway
 - Spring Security + JWT (HS256)
-- RabbitMQ: opção **A** do requisito 5 _(etapa 3)_
+- RabbitMQ: opção **A** do requisito 5
 - Spring AI com OpenAI _(etapa 4)_
 - springdoc-openapi (Swagger)
 - Docker Compose (Oracle Free 23ai + RabbitMQ)
@@ -102,7 +102,10 @@ Criados automaticamente na subida da API, se ainda não existirem. A senha de to
 | responsavel2@beaconsync.com | RESPONSAVEL | | Pedido de vínculo para uma pessoa já cadastrada |
 | voluntario@beaconsync.com | VOLUNTARIO | | Disponibilidade e resgates _(etapa 4)_ |
 | bombeira@beaconsync.com | PROFISSIONAL | Corpo de Bombeiros | Ocorrências e resgates _(etapa 4)_ |
-| agente@beaconsync.com | AGENTE_ORGAO | Defesa Civil | Alertas, mapa e fila _(etapa 3)_ |
+| agente@beaconsync.com | AGENTE_ORGAO | Defesa Civil | Alertas, mapa e lista por distrito |
+| demo@beaconsync.com | RESPONSAVEL | | Responsável pelas 49 pessoas de demonstração |
+
+Com `SEED_DEMO=true` (padrão), a API também cria 49 pessoas de demonstração ligadas a `demo@beaconsync.com`: 32 na Lapa, 12 na Barra Funda e 5 na Vila Leopoldina. Assim o mapa mostra todas as cores.
 
 ## Autenticação (JWT)
 
@@ -150,6 +153,16 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | GET | `/api/v1/pessoas/{id}/vinculos` | RESPONSAVEL | Responsáveis e pedidos da pessoa |
 | GET | `/api/v1/vinculos/pendentes` | RESPONSAVEL | Pedidos que você pode aprovar |
 | PATCH | `/api/v1/vinculos/{id}` | RESPONSAVEL | Aprova ou recusa um pedido |
+| POST | `/api/v1/alertas` | AGENTE_ORGAO | Emite alerta para uma lista de distritos |
+| GET | `/api/v1/alertas` | logado | Lista paginada (filtro `?status=ATIVO`) |
+| GET | `/api/v1/alertas/{id}` | logado | Detalhe do alerta |
+| PATCH | `/api/v1/alertas/{id}/encerrar` | AGENTE_ORGAO | Encerra o alerta (só o órgão que emitiu) |
+| GET | `/api/v1/alertas/{id}/mapa` | logado | Contagem e cor por distrito, sem nomes |
+| GET | `/api/v1/alertas/{id}/distritos/{distritoId}/pessoas` | AGENTE_ORGAO | Pessoas do distrito por prioridade (só com alerta ativo) |
+| GET | `/api/v1/alertas/ativos/meus` | RESPONSAVEL | Suas pessoas em áreas com alerta ativo |
+| POST | `/api/v1/alertas/{id}/respostas` | RESPONSAVEL | SEGURA, PRECISA_AJUDA ou SEM_CONTATO |
+| GET | `/api/v1/notificacoes` | logado | Seus avisos (alerta e andamento do resgate) |
+| PATCH | `/api/v1/notificacoes/{id}/lida` | logado | Marca o aviso como lido |
 
 ### Exemplo: cadastrar uma pessoa
 
@@ -175,7 +188,44 @@ POST /api/v1/pessoas
 
 O `distritoId` vem de `GET /api/v1/distritos`. Para testar o registro único, faça login com `responsavel2@beaconsync.com` e envie o mesmo CPF: a resposta é 409 com o `recursoId` da pessoa.
 
-## Arquitetura distribuída: opção A (RabbitMQ) _(etapa 3)_
+## Arquitetura distribuída: opção A (RabbitMQ)
+
+O que é lento ou não precisa ser imediato sai da requisição e vai para filas. O app recebe a resposta na hora, e a triagem e os avisos acontecem segundos depois.
+
+| Evento (routing key) | Publicado em | Fila | O que o consumidor faz |
+| --- | --- | --- | --- |
+| `alerta.emitido` | `POST /alertas` | `beaconsync.notificacao.q` | Grava um aviso para cada responsável das pessoas na área |
+| `resposta.registrada` | `POST /alertas/{id}/respostas` (pedido de ajuda ou sem contato) | `beaconsync.triagem.q` | Faz a triagem, abre a ocorrência e calcula a prioridade sugerida |
+| `ocorrencia.status-alterado` | Abertura ou mudança de etapa do resgate | `beaconsync.notificacao.q` | Avisa a família da nova etapa |
+
+- **Exchange:** `beaconsync.events` (topic). As filas são duráveis.
+- **Publicação depois do commit:** os services publicam um evento interno, e o `EventoRabbitPublisher` só envia ao RabbitMQ com `@TransactionalEventListener(AFTER_COMMIT)`. O consumidor nunca recebe o id de algo que ainda não foi gravado.
+- **Mensagem leva só o id:** o consumidor lê o estado atual no banco, então nunca age sobre dado velho.
+- **Idempotência:** a triagem ignora mensagem repetida da mesma resposta e ignora pedido que virou "segura".
+- **DLQ:** mensagem que falha no consumidor vai para `beaconsync.triagem.dlq` ou `beaconsync.notificacao.dlq` (via `beaconsync.events.dlx`), visível no painel do RabbitMQ.
+
+### Como testar o fluxo do alerta
+
+1. Login com `agente@beaconsync.com`. Em `GET /api/v1/distritos?size=100`, anote os ids de Lapa, Barra Funda, Vila Leopoldina e Jaguaré (numa base nova: 48, 6, 90 e 40).
+2. `POST /api/v1/alertas` com `{"titulo": "Enchente no Tietê", "distritoIds": [...]}`. A resposta mostra `pessoasAfetadas: 49`.
+3. `GET /api/v1/alertas/{id}/mapa`: Lapa vermelho, Barra Funda laranja, Vila Leopoldina amarelo, Jaguaré azul.
+4. Login com `demo@beaconsync.com`. `GET /api/v1/alertas/ativos/meus` lista as 49 situações. Responda algumas com `PRECISA_AJUDA` e outras com `SEGURA`.
+5. Veja no log as linhas `Triagem recebida` e no painel do RabbitMQ (http://localhost:15672) as mensagens passando.
+6. Como agente, chame o mapa de novo (a contagem cai com as respostas `SEGURA`) e `GET /alertas/{id}/distritos/{lapaId}/pessoas`: quem pediu ajuda aparece primeiro, com gravidade e resumo da triagem.
+7. Como `demo@`, `GET /api/v1/notificacoes` mostra o aviso do alerta e o do pedido de resgate registrado.
+
+### Mapa de risco
+
+A cor do distrito considera só quem ainda não está seguro (pendente, precisa de ajuda ou sem contato) no endereço atual. A contagem é feita a cada consulta, então o distrito muda de cor sozinho. As faixas ficam no `application.properties`:
+
+| Cor | Pessoas sem segurança | Propriedade |
+| --- | --- | --- |
+| Azul | 0 | |
+| Amarelo | 1 a 9 | `beaconsync.mapa.faixa-amarelo=1` |
+| Laranja | 10 a 29 | `beaconsync.mapa.faixa-laranja=10` |
+| Vermelho | 30 ou mais | `beaconsync.mapa.faixa-vermelho=30` |
+
+A prioridade sugerida de cada pedido soma gravidade (40), tempo em aberto (30, até 120 minutos) e cor do distrito (30). Os pesos também ficam no `application.properties`. O sistema sugere a ordem, mas o agente sempre tem a palavra final.
 
 ## Funcionalidade com Spring AI _(etapa 4)_
 
