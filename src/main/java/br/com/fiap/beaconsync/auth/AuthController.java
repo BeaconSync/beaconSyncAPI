@@ -2,6 +2,7 @@ package br.com.fiap.beaconsync.auth;
 
 import br.com.fiap.beaconsync.usuario.UsuarioResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +17,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "Autenticação", description = "Login (gera o JWT) e autocadastro de responsáveis e voluntários")
+@SecurityRequirements
+@Tag(name = "Autenticação", description = "Login, renovação de sessão, logout e autocadastro")
 public class AuthController {
 
     private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Troca um refresh token por um novo par de tokens (sem Bearer)")
+    public ResponseEntity<LoginResponseDTO> renovar(@Valid @RequestBody RefreshRequestDTO request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(refreshTokenService.renovar(request.refreshToken()));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Revoga a sessão do refresh token informado (sem Bearer)")
+    public ResponseEntity<Void> encerrar(@Valid @RequestBody RefreshRequestDTO request) {
+        refreshTokenService.encerrar(request.refreshToken());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 
     @PostMapping("/login")
     @Operation(summary = "Faz login e devolve o JWT para usar em Authorization: Bearer <token>")

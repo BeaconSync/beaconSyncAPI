@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(ROTAS_SWAGGER).permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         // Login e autocadastro precisam ser públicos, senão ninguém gera token
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/registro").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/registro",
+                                "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                         // Distritos são dado público de referência (usado no cadastro de endereço)
                         .requestMatchers(HttpMethod.GET, "/api/v1/distritos").permitAll()
                         .anyRequest().authenticated()

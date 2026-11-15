@@ -24,21 +24,16 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final ResgatistaRepository resgatistaRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TokenService tokenService;
+    private final RefreshTokenService refreshTokenService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponseDTO login(LoginRequestDTO dto) {
         Usuario usuario = usuarioRepository.findByEmailIgnoreCase(dto.email().trim())
                 .filter(u -> Boolean.TRUE.equals(u.getAtivo()))
                 .filter(u -> passwordEncoder.matches(dto.senha(), u.getSenhaHash()))
                 .orElseThrow(() -> new BadCredentialsException("E-mail ou senha inválidos."));
 
-        return new LoginResponseDTO(
-                tokenService.gerarToken(usuario),
-                "Bearer",
-                tokenService.getExpiracaoSegundos(),
-                new UsuarioResponseDTO(usuario)
-        );
+        return refreshTokenService.criarSessao(usuario);
     }
 
     @Transactional

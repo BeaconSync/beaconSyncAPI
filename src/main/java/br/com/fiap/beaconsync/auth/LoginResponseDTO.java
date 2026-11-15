@@ -6,5 +6,9 @@ public record LoginResponseDTO(
         String token,
         String tipo,
         long expiraEmSegundos,
-        UsuarioResponseDTO usuario
-) {}
+        UsuarioResponseDTO usuario,
+        String refreshToken,
+        long refreshExpiraEmSegundos
+) {
+    @Override public String toString() { return "LoginResponseDTO[tokens=REDACTED]"; }
+}
