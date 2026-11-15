@@ -74,6 +74,14 @@ public class NotificacaoService {
         avisarResponsaveis(pessoa, "Resgate de " + nome, mensagem);
     }
 
+    /** Avisa o resgatista que ele foi escalado (chamado direto, na mesma transação da escala). */
+    @Transactional
+    public void notificarEscala(Usuario resgatista, Ocorrencia ocorrencia) {
+        criar(resgatista, "Você foi escalado para um resgate",
+                "Resgate %d no distrito %s. Abra os detalhes no app para ver endereço e necessidades."
+                        .formatted(ocorrencia.getId(), ocorrencia.getSituacao().getEndereco().getDistrito().getNome()));
+    }
+
     @Transactional(readOnly = true)
     public Page<NotificacaoResponseDTO> listarMinhas(Pageable pageable) {
         return notificacaoRepository.findByUsuarioId(authorizationService.usuarioLogadoId(), pageable)
