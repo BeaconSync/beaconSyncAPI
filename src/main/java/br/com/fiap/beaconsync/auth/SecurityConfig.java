@@ -12,6 +12,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -71,7 +72,7 @@ public class SecurityConfig {
     public SecretKey jwtSecretKey(@Value("${beaconsync.jwt.secret}") String segredo) {
         byte[] bytes = segredo.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
-            throw new IllegalStateException("JWT_SECRET precisa ter pelo menos 32 caracteres (HS256).");
+            throw new IllegalStateException("JWT_SECRET precisa ter pelo menos 32 bytes UTF-8 (HS256).");
         }
         return new SecretKeySpec(bytes, "HmacSHA256");
     }
@@ -86,8 +87,8 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        // Valida assinatura, expiração e emissor
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(issuer), new TokenClaimsValidator()));
         return decoder;
     }
 

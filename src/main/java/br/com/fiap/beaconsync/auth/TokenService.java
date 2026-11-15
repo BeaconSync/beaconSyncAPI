@@ -10,7 +10,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 
+/** Gera o JWT do login. sub = id do usuário; role = papel; orgaoId quando houver. */
 @Service
 public class TokenService {
 
@@ -23,6 +25,9 @@ public class TokenService {
                         @Value("${beaconsync.jwt.issuer}") String issuer) {
         if (expiracaoSegundos < 60 || expiracaoSegundos > 86_400) {
             throw new IllegalArgumentException("A validade do JWT deve ficar entre 60 segundos e 24 horas.");
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalArgumentException("JWT_ISSUER não pode ser vazio.");
         }
         this.encoder = encoder;
         this.expiracaoSegundos = expiracaoSegundos;
@@ -39,7 +44,9 @@ public class TokenService {
                 .issuer(issuer)
                 .issuedAt(agora)
                 .expiresAt(agora.plusSeconds(expiracaoSegundos))
+                .id(UUID.randomUUID().toString())
                 .subject(usuario.getId().toString())
+                .claim("email", usuario.getEmail())
                 .claim("role", usuario.getPapel().name())
                 .claim("nome", usuario.getNome());
 
