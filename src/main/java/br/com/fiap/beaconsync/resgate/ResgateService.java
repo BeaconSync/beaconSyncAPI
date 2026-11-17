@@ -63,6 +63,7 @@ public class ResgateService {
     private final AuthorizationService authorizationService;
     private final AuditoriaService auditoriaService;
     private final NotificacaoService notificacaoService;
+    private final DisponibilidadeService disponibilidadeService;
 
     @Transactional(readOnly = true)
     public Page<OcorrenciaResumoDTO> fila(StatusOcorrencia status, Long alertaId, Pageable pageable) {
@@ -80,7 +81,6 @@ public class ResgateService {
         return new PageImpl<>(todas.subList(inicio, fim), pageable, todas.size());
     }
 
-    /** Resgates em que o usuário logado foi escalado. */
     @Transactional(readOnly = true)
     public List<OcorrenciaResumoDTO> minhas() {
         return ocorrenciaRepository.findDoResgatista(authorizationService.usuarioLogadoId()).stream()
