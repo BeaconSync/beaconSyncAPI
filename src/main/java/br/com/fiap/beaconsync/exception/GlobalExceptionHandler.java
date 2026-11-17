@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +30,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IaIndisponivelException.class)
     public ResponseEntity<ErroPadrao> tratarIa(IaIndisponivelException e, HttpServletRequest request) {
         return resposta(HttpStatus.valueOf(e.getStatus()), "Falha no Serviço de Análise", e.getMessage(), request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErroPadrao> tratarStatus(ResponseStatusException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
+        String titulo = status == HttpStatus.PAYLOAD_TOO_LARGE ? "Foto Muito Grande" : "Requisição Inválida";
+        return resposta(status, titulo, e.getReason(), request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErroPadrao> tratarUploadGrande(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        return resposta(HttpStatus.PAYLOAD_TOO_LARGE, "Foto Muito Grande", "A foto deve ter no máximo 2 MiB.", request);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErroPadrao> tratarArquivoAusente(MissingServletRequestPartException e, HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "Arquivo Obrigatório", "Envie a foto no campo arquivo.", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

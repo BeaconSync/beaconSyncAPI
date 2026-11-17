@@ -32,6 +32,9 @@ public class Usuario {
     @Column(length = 20)
     private String telefone;
 
+    @Column(name = "foto_versao", length = 36)
+    private String fotoVersao;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Papel papel;

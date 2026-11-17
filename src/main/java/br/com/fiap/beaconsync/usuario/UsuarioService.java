@@ -15,4 +15,12 @@ public class UsuarioService {
     public UsuarioResponseDTO dadosDoUsuarioLogado() {
         return new UsuarioResponseDTO(authorizationService.usuarioLogado());
     }
+
+    @Transactional
+    public UsuarioResponseDTO atualizarMeuPerfil(AtualizarPerfilDTO dto) {
+        Usuario usuario = authorizationService.usuarioLogado();
+        usuario.setNome(dto.nome().trim());
+        usuario.setTelefone(dto.telefone());
+        return new UsuarioResponseDTO(usuario);
+    }
 }

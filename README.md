@@ -96,16 +96,6 @@ Depois suba só o RabbitMQ (`docker compose up -d rabbitmq`) e rode a API normal
 | Log `IA indisponível na triagem` | A chave é inválida ou a OpenAI não respondeu. A triagem segue pela regra base. |
 | Análise de distrito responde 503 | `IA_SERVICE_API_KEY` está vazia ou a API Python está fora do ar. O resto da API funciona normalmente. |
 
-### Testes automatizados
-
-Os testes de JWT, refresh token e análise de distrito usam mocks e H2 em memória, sem Oracle, RabbitMQ ou IA:
-
-```bash
-./gradlew test --tests "br.com.fiap.beaconsync.auth.*" --tests "br.com.fiap.beaconsync.ia.distrito.*"   # Windows: gradlew.bat
-```
-
-O `BeaconSyncApplicationTests` sobe a aplicação inteira, então o `./gradlew test` sem filtro só passa com o Oracle e o RabbitMQ no ar.
-
 ## Segredos e dados sensíveis
 
 - Senhas, chaves e segredo do JWT existem apenas no `.env` (ignorado pelo Git) ou em variáveis de ambiente.
