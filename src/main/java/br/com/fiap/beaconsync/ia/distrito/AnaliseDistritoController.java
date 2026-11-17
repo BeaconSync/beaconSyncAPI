@@ -17,7 +17,7 @@ public class AnaliseDistritoController {
     private final AnaliseDistritoService service;
 
     @PostMapping("/{alertaId}/distritos/{distritoId}/analise")
-    @PreAuthorize("hasRole('AGENTE_ORGAO')")
+    @PreAuthorize("hasAnyRole('AGENTE_ORGAO', 'VOLUNTARIO')")
     @Operation(summary = "Explica as contagens do distrito usando a IA Python")
     public ResponseEntity<IaAnaliseResponse> analisar(
             @PathVariable("alertaId") Long alertaId,

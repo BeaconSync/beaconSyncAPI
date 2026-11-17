@@ -36,8 +36,9 @@ public class DadosDistritoService {
 
     @Transactional(readOnly = true)
     public IaAnaliseRequest consultar(Long alertaId, Long distritoId, String pergunta) {
-        if (authorization.usuarioLogado().getPapel() != Papel.AGENTE_ORGAO) {
-            throw new AccessDeniedException("Somente agentes de órgão podem solicitar a análise.");
+        Papel papel = authorization.usuarioLogado().getPapel();
+        if (papel != Papel.AGENTE_ORGAO && papel != Papel.VOLUNTARIO) {
+            throw new AccessDeniedException("Somente agentes e voluntários podem solicitar a análise agregada.");
         }
         var alerta = alertas.findById(alertaId)
                 .orElseThrow(() -> new EntityNotFoundException("Alerta não encontrado."));
