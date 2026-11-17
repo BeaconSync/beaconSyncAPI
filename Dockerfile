@@ -14,4 +14,5 @@ RUN useradd --system --uid 1001 beaconsync
 COPY --from=build /app/build/libs/*.jar app.jar
 USER beaconsync
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Memória contida para o plano gratuito do Render; headless para tratar a foto sem tela
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-Djava.awt.headless=true", "-jar", "app.jar"]
