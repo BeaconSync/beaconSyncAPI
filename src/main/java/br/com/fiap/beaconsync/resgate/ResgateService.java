@@ -34,10 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Operação do resgate pelo órgão: fila por prioridade, ordem manual,
- * montagem da equipe (profissionais e voluntários) e etapas do resgate.
- */
 @Service
 @RequiredArgsConstructor
 public class ResgateService {
@@ -45,7 +41,6 @@ public class ResgateService {
     private static final Set<StatusOcorrencia> ABERTAS =
             EnumSet.of(StatusOcorrencia.SOLICITADA, StatusOcorrencia.EM_ANDAMENTO);
 
-    /** Etapas permitidas a partir de cada etapa. */
     private static final Map<StatusOcorrencia, Set<StatusOcorrencia>> TRANSICOES = Map.of(
             StatusOcorrencia.SOLICITADA, EnumSet.of(StatusOcorrencia.EM_ANDAMENTO, StatusOcorrencia.CANCELADA),
             StatusOcorrencia.EM_ANDAMENTO, EnumSet.of(StatusOcorrencia.CONCLUIDA, StatusOcorrencia.CANCELADA),
@@ -53,7 +48,6 @@ public class ResgateService {
             StatusOcorrencia.CANCELADA, EnumSet.noneOf(StatusOcorrencia.class)
     );
 
-    /** Ordem manual do agente vem primeiro (1, 2, 3...); depois o score sugerido. */
     private static final Comparator<OcorrenciaResumoDTO> ORDEM_FILA = Comparator
             .comparing((OcorrenciaResumoDTO o) -> o.prioridadeManual() == null)
             .thenComparing(o -> o.prioridadeManual() != null ? o.prioridadeManual() : 0)
@@ -70,10 +64,6 @@ public class ResgateService {
     private final AuditoriaService auditoriaService;
     private final NotificacaoService notificacaoService;
 
-    /**
-     * Fila do órgão do usuário logado. O score é recalculado na hora (o tempo
-     * em aberto e a cor do distrito mudam), por isso a ordenação é feita aqui.
-     */
     @Transactional(readOnly = true)
     public Page<OcorrenciaResumoDTO> fila(StatusOcorrencia status, Long alertaId, Pageable pageable) {
         Long orgaoId = exigirOrgao(authorizationService.usuarioLogado());
@@ -108,7 +98,6 @@ public class ResgateService {
         return detalhar(ocorrencia);
     }
 
-    /** O sistema sugere, o agente decide: muda a ordem e a justificativa fica auditada. */
     @Transactional
     public OcorrenciaResumoDTO definirPrioridade(Long id, PrioridadeRequestDTO dto) {
         Usuario agente = authorizationService.usuarioLogado();
@@ -122,7 +111,6 @@ public class ResgateService {
         return resumo(ocorrencia);
     }
 
-    /** Escala um resgatista: profissional de qualquer órgão ou voluntário disponível. */
     @Transactional
     public OcorrenciaDetalheDTO escalar(Long id, EscalaRequestDTO dto) {
         Usuario agente = authorizationService.usuarioLogado();
@@ -134,7 +122,10 @@ public class ResgateService {
         }
         Resgatista resgatista = resgatistaRepository.findById(dto.resgatistaId())
                 .orElseThrow(() -> new EntityNotFoundException("Resgatista não encontrado."));
-        if (resgatista.getTipo() == TipoResgatista.VOLUNTARIO && !Boolean.TRUE.equals(resgatista.getDisponivel())) {
+        if (!Boolean.TRUE.equals(resgatista.getUsuario().getAtivo())) {
+            throw new RegraNegocioException("Resgatista inativo.");
+        }
+        if (resgatista.getTipo() == TipoResgatista.VOLUNTARIO && !disponibilidadeService.disponivel(resgatista)) {
             throw new RegraNegocioException("Este voluntário não está disponível no momento.");
         }
         if (participacaoRepository.existsByOcorrenciaIdAndResgatistaId(id, resgatista.getId())) {
@@ -154,10 +145,6 @@ public class ResgateService {
         return detalhar(ocorrencia);
     }
 
-    /**
-     * Avança a etapa do resgate. CONCLUIDA marca a pessoa como RESGATADA,
-     * e o mapa recalcula a cor do distrito. A família é avisada pelo RabbitMQ.
-     */
     @Transactional
     public OcorrenciaDetalheDTO atualizarStatus(Long id, StatusOcorrenciaRequestDTO dto) {
         Usuario usuario = authorizationService.usuarioLogado();
@@ -182,7 +169,6 @@ public class ResgateService {
         return detalhar(ocorrencia);
     }
 
-    // ---- regras de acesso ----
 
     private Long exigirOrgao(Usuario usuario) {
         if (usuario.getOrgao() == null) {
@@ -205,7 +191,6 @@ public class ResgateService {
         return usuario.getOrgao() != null && usuario.getOrgao().getId().equals(ocorrencia.getOrgao().getId());
     }
 
-    /** Agente e profissional do órgão veem tudo do órgão; voluntário só o resgate em que foi escalado. */
     private void exigirAcesso(Ocorrencia ocorrencia, Usuario usuario) {
         boolean permitido = switch (usuario.getPapel()) {
             case AGENTE_ORGAO, PROFISSIONAL -> mesmoOrgao(ocorrencia, usuario) || estaNaEquipe(ocorrencia, usuario);
@@ -217,7 +202,6 @@ public class ResgateService {
         }
     }
 
-    /** Muda a etapa: agente do órgão, ou profissional do órgão / escalado. */
     private void exigirPodeAtualizar(Ocorrencia ocorrencia, Usuario usuario) {
         boolean permitido = (usuario.getPapel() == Papel.AGENTE_ORGAO && mesmoOrgao(ocorrencia, usuario))
                 || (usuario.getPapel() == Papel.PROFISSIONAL
@@ -226,8 +210,6 @@ public class ResgateService {
             throw new AccessDeniedException("Você não pode alterar a etapa deste resgate.");
         }
     }
-
-    // ---- montagem das respostas ----
 
     private OcorrenciaResumoDTO resumo(Ocorrencia ocorrencia) {
         SituacaoNoAlerta situacao = ocorrencia.getSituacao();

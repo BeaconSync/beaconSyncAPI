@@ -19,17 +19,17 @@ public class ResgatistaService {
     private final ResgatistaRepository resgatistaRepository;
     private final DistritoRepository distritoRepository;
     private final AuthorizationService authorizationService;
+    private final DisponibilidadeService disponibilidadeService;
 
     @Transactional(readOnly = true)
     public ResgatistaResponseDTO meuPerfil() {
-        return new ResgatistaResponseDTO(buscarDoUsuarioLogado());
+        Resgatista resgatista = buscarDoUsuarioLogado();
+        return new ResgatistaResponseDTO(resgatista, disponibilidadeService.disponivel(resgatista));
     }
 
-    /** O voluntário avisa que pode ajudar (e em qual região). */
     @Transactional
     public ResgatistaResponseDTO atualizarDisponibilidade(DisponibilidadeRequestDTO dto) {
         Resgatista resgatista = buscarDoUsuarioLogado();
-        resgatista.setDisponivel(dto.disponivel());
         if (dto.distritoBaseId() != null) {
             resgatista.setDistritoBase(distritoRepository.findById(dto.distritoBaseId())
                     .orElseThrow(() -> new RegraNegocioException("Distrito " + dto.distritoBaseId() + " não existe.")));
@@ -37,25 +37,26 @@ public class ResgatistaService {
         if (dto.habilidades() != null) {
             resgatista.setHabilidades(dto.habilidades().trim());
         }
-        return new ResgatistaResponseDTO(resgatista);
+        boolean disponivel = disponibilidadeService.alterar(resgatista, dto.disponivel());
+        return new ResgatistaResponseDTO(resgatista, disponivel);
     }
 
-    /**
-     * Quem o agente pode escalar: voluntários disponíveis e profissionais do
-     * próprio órgão. Filtro opcional pela região do voluntário.
-     */
     @Transactional(readOnly = true)
     public List<ResgatistaResponseDTO> disponiveis(Long distritoId) {
         Usuario agente = authorizationService.usuarioLogado();
         Long orgaoId = agente.getOrgao() != null ? agente.getOrgao().getId() : null;
 
         return resgatistaRepository.findAll().stream()
-                .filter(r -> Boolean.TRUE.equals(r.getDisponivel())
-                        || (r.getTipo() == TipoResgatista.PROFISSIONAL && r.getOrgao() != null
-                        && r.getOrgao().getId().equals(orgaoId)))
+                .filter(r -> Boolean.TRUE.equals(r.getUsuario().getAtivo()))
+                .filter(r -> r.getTipo() == TipoResgatista.VOLUNTARIO
+                        || Boolean.TRUE.equals(r.getDisponivel())
+                        || (r.getOrgao() != null && r.getOrgao().getId().equals(orgaoId)))
                 .filter(r -> distritoId == null || r.getTipo() == TipoResgatista.PROFISSIONAL
                         || (r.getDistritoBase() != null && r.getDistritoBase().getId().equals(distritoId)))
-                .map(ResgatistaResponseDTO::new)
+                .map(r -> new ResgatistaResponseDTO(r, r.getTipo() == TipoResgatista.PROFISSIONAL
+                        ? Boolean.TRUE.equals(r.getDisponivel())
+                        : disponibilidadeService.disponivelParaListagem(r)))
+                .filter(r -> r.tipo() == TipoResgatista.PROFISSIONAL || r.disponivel())
                 .sorted(Comparator.comparing(ResgatistaResponseDTO::tipo).thenComparing(ResgatistaResponseDTO::nome))
                 .toList();
     }

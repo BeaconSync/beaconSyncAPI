@@ -13,6 +13,10 @@ public record ResgatistaResponseDTO(
         String distritoBaseNome
 ) {
     public ResgatistaResponseDTO(Resgatista resgatista) {
+        this(resgatista, Boolean.TRUE.equals(resgatista.getDisponivel()));
+    }
+
+    public ResgatistaResponseDTO(Resgatista resgatista, boolean disponivelAtual) {
         this(
                 resgatista.getId(),
                 resgatista.getUsuario().getId(),
@@ -20,7 +24,7 @@ public record ResgatistaResponseDTO(
                 resgatista.getUsuario().getTelefone(),
                 resgatista.getTipo(),
                 resgatista.getHabilidades(),
-                Boolean.TRUE.equals(resgatista.getDisponivel()),
+                disponivelAtual,
                 resgatista.getOrgao() != null ? resgatista.getOrgao().getNome() : null,
                 resgatista.getDistritoBase() != null ? resgatista.getDistritoBase().getId() : null,
                 resgatista.getDistritoBase() != null ? resgatista.getDistritoBase().getNome() : null

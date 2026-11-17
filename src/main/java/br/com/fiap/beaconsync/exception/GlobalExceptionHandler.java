@@ -19,6 +19,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
+import br.com.fiap.beaconsync.voluntariado.NetIndisponivelException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IaIndisponivelException.class)
     public ResponseEntity<ErroPadrao> tratarIa(IaIndisponivelException e, HttpServletRequest request) {
         return resposta(HttpStatus.valueOf(e.getStatus()), "Falha no Serviço de Análise", e.getMessage(), request);
+    }
+
+    @ExceptionHandler(NetIndisponivelException.class)
+    public ResponseEntity<ErroPadrao> tratarNet(NetIndisponivelException e, HttpServletRequest request) {
+        return resposta(HttpStatus.SERVICE_UNAVAILABLE, "Voluntariado Indisponível", e.getMessage(), request);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
