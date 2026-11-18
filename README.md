@@ -6,7 +6,7 @@ Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risc
 
 > **Vídeo pitch:** _cole aqui o link do YouTube (não listado)_
 >
-> **API publicada:** _cole aqui a URL do Render_ (Swagger em `/swagger-ui.html`)
+> **API publicada:** https://beaconsync-api.onrender.com/swagger-ui/index.html#/
 
 ## Onde está cada requisito
 
@@ -450,6 +450,6 @@ O Render define a variável `PORT`, que a API já usa. Atrás do proxy HTTPS do 
 
 ## Declaração de uso de IA
 
-**No desenvolvimento.** O grupo usou o Claude (Anthropic) como assistente para planejar a arquitetura, sugerir a modelagem e gerar partes do código, da documentação e das mensagens de commit. Todo o conteúdo gerado foi lido, testado e ajustado pelos integrantes, que entendem e respondem pelo que foi entregue.
+**No desenvolvimento.** O grupo usou o Claude (Anthropic) como assistente para planejar a arquitetura, gerar partes do código e da documentação. Todo o conteúdo gerado foi lido, testado e ajustado pelos integrantes, que entendem e respondem pelo que foi entregue.
 
 **No produto.** A API usa o Spring AI com modelos da OpenAI em duas funcionalidades: a triagem dos pedidos de ajuda e o boletim do alerta. Ela também chama a API Python do grupo (disciplina de IoT), que usa o Gemini para a análise de distrito e recebe só contagens agregadas. Nome, CPF e endereço das pessoas vulneráveis não são enviados a nenhum modelo, e a decisão final é sempre de um agente humano.
