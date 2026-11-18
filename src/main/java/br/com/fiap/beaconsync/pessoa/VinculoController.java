@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -19,6 +20,15 @@ import java.util.List;
 public class VinculoController {
 
     private final VinculoService vinculoService;
+    private final MinhasSolicitacoesService minhasSolicitacoesService;
+
+    @GetMapping("/vinculos/minhas-solicitacoes")
+    @Operation(summary = "Último pedido de cada vínculo solicitado pela própria conta")
+    public ResponseEntity<Page<MinhaSolicitacaoVinculoDTO>> minhasSolicitacoes(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size) {
+        return ResponseEntity.ok(minhasSolicitacoesService.consultar(page, size));
+    }
 
     @PostMapping("/pessoas/{pessoaId}/vinculos")
     @Operation(summary = "Pede para ser responsável por uma pessoa já cadastrada")
