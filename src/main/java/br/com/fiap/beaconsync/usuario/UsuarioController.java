@@ -26,7 +26,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/me")
-    @Operation(summary = "Atualiza nome, telefone e, opcionalmente, alterna RESPONSAVEL/VOLUNTARIO")
+    @Operation(summary = "Atualiza nome, telefone e, opcionalmente, e-mail e perfil RESPONSAVEL/VOLUNTARIO")
     public ResponseEntity<UsuarioResponseDTO> atualizar(@Valid @RequestBody AtualizarPerfilDTO dto) {
         return ResponseEntity.ok(usuarioService.atualizarMeuPerfil(dto));
     }

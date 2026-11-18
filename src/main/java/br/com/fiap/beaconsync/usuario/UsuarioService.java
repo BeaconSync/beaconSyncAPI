@@ -13,6 +13,8 @@ import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -24,6 +26,7 @@ public class UsuarioService {
     private final ParticipacaoResgateRepository participacoes;
     private final DisponibilidadeService disponibilidade;
     private final EntityManager entityManager;
+    private final UsuarioRepository usuarios;
 
     @Transactional(readOnly = true)
     public UsuarioResponseDTO dadosDoUsuarioLogado() {
@@ -35,11 +38,20 @@ public class UsuarioService {
         Usuario usuario = authorizationService.usuarioLogado();
         // Serializa a troca com outras edições e com a escala em um resgate.
         entityManager.refresh(usuario, LockModeType.PESSIMISTIC_WRITE);
+        if (dto.email() != null) {
+            usuarios.findByEmailIgnoreCase(dto.email())
+                    .filter(outro -> !outro.getId().equals(usuario.getId()))
+                    .ifPresent(outro -> {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "Este e-mail já está em uso. Informe outro e-mail.");
+                    });
+        }
         if (dto.papel() != null && dto.papel() != usuario.getPapel()) {
             alterarPapel(usuario, dto.papel());
         }
         usuario.setNome(dto.nome().trim());
         usuario.setTelefone(dto.telefone());
+        if (dto.email() != null) usuario.setEmail(dto.email());
         return new UsuarioResponseDTO(usuario);
     }
 

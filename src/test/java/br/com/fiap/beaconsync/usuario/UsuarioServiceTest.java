@@ -21,13 +21,15 @@ class UsuarioServiceTest {
     private final ParticipacaoResgateRepository participacoes = mock(ParticipacaoResgateRepository.class);
     private final DisponibilidadeService disponibilidade = mock(DisponibilidadeService.class);
     private final EntityManager em = mock(EntityManager.class);
-    private final UsuarioService service = new UsuarioService(auth, resgatistas, participacoes, disponibilidade, em);
+    private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
+    private final UsuarioService service = new UsuarioService(auth, resgatistas, participacoes, disponibilidade, em, usuarios);
     private Usuario usuario;
 
     @BeforeEach void preparar() {
         usuario = new Usuario();
         usuario.setId(7L);
         usuario.setNome("Nome original");
+        usuario.setEmail("original@example.com");
         usuario.setPapel(Papel.RESPONSAVEL);
         when(auth.usuarioLogado()).thenReturn(usuario);
         when(resgatistas.findByUsuarioId(7L)).thenReturn(Optional.empty());
@@ -37,6 +39,7 @@ class UsuarioServiceTest {
         var resposta = service.atualizarMeuPerfil(new AtualizarPerfilDTO(" Ana ", "11999999999"));
         assertEquals("Ana", resposta.nome());
         assertEquals(Papel.RESPONSAVEL, resposta.papel());
+        assertEquals("original@example.com", resposta.email());
         verifyNoInteractions(resgatistas, participacoes, disponibilidade);
     }
 
@@ -97,6 +100,45 @@ class UsuarioServiceTest {
     @Test void contaInstitucionalNaoPodeTrocarPapelNestaOpcao() {
         usuario.setPapel(Papel.PROFISSIONAL);
         assertThrows(RegraNegocioException.class, () -> service.atualizarMeuPerfil(dto(Papel.VOLUNTARIO)));
+    }
+
+    @Test void trocaEmailPreservandoIdentidade() {
+        var resposta = service.atualizarMeuPerfil(
+                new AtualizarPerfilDTO("Ana", "11999999999", null, "  NOVO@example.com  "));
+        assertEquals("novo@example.com", resposta.email());
+        assertEquals(7L, resposta.id());
+        assertEquals(Papel.RESPONSAVEL, resposta.papel());
+        verify(usuarios).findByEmailIgnoreCase("novo@example.com");
+        verifyNoInteractions(resgatistas, participacoes, disponibilidade);
+    }
+
+    @Test void aceitaEmailDaPropriaConta() {
+        when(usuarios.findByEmailIgnoreCase("original@example.com")).thenReturn(Optional.of(usuario));
+        var resposta = service.atualizarMeuPerfil(
+                new AtualizarPerfilDTO("Ana", "11999999999", null, "ORIGINAL@example.com"));
+        assertEquals("original@example.com", resposta.email());
+    }
+
+    @Test void emailDuplicadoNaoAlteraNomePapelOuDisponibilidade() {
+        var outro = new Usuario();
+        outro.setId(8L);
+        when(usuarios.findByEmailIgnoreCase("ocupado@example.com")).thenReturn(Optional.of(outro));
+        var erro = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.atualizarMeuPerfil(new AtualizarPerfilDTO(
+                        "Ana", "11999999999", Papel.VOLUNTARIO, "ocupado@example.com")));
+        assertEquals(409, erro.getStatusCode().value());
+        assertEquals("Nome original", usuario.getNome());
+        assertEquals("original@example.com", usuario.getEmail());
+        assertEquals(Papel.RESPONSAVEL, usuario.getPapel());
+        verifyNoInteractions(resgatistas, participacoes, disponibilidade);
+    }
+
+    @Test void trocaEmailEPapelJuntos() {
+        var resposta = service.atualizarMeuPerfil(new AtualizarPerfilDTO(
+                "Ana", "11999999999", Papel.VOLUNTARIO, "novo@example.com"));
+        assertEquals("novo@example.com", resposta.email());
+        assertEquals(Papel.VOLUNTARIO, resposta.papel());
+        verify(resgatistas).save(any());
     }
 
     private Resgatista resgatista() {
