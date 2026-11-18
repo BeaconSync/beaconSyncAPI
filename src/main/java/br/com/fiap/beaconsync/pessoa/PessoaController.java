@@ -18,8 +18,8 @@ import java.net.URI;
 @RestController
 @RequestMapping("/api/v1/pessoas")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('RESPONSAVEL')")
-@Tag(name = "Pessoas vulneráveis", description = "Cadastro prévio feito pelos responsáveis (família e amigos)")
+@PreAuthorize("hasAnyRole('RESPONSAVEL', 'VOLUNTARIO')")
+@Tag(name = "Pessoas vulneráveis", description = "Cadastro prévio feito por responsáveis ou voluntários autorizados")
 public class PessoaController {
 
     private final PessoaService pessoaService;
@@ -41,7 +41,7 @@ public class PessoaController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Detalhe da pessoa (só para responsáveis vinculados)")
+    @Operation(summary = "Detalhe da pessoa (só para usuários com vínculo ativo)")
     public ResponseEntity<PessoaResponseDTO> buscarPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(pessoaService.buscarPorId(id));
     }

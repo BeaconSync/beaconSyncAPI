@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('RESPONSAVEL')")
+@PreAuthorize("hasAnyRole('RESPONSAVEL', 'VOLUNTARIO')")
 @Tag(name = "Vínculos", description = "Vários responsáveis para a mesma pessoa, sem duplicar o cadastro")
 public class VinculoController {
 

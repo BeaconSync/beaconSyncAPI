@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/pessoas/{pessoaId}")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('RESPONSAVEL')")
+@PreAuthorize("hasAnyRole('RESPONSAVEL', 'VOLUNTARIO')")
 @Tag(name = "Endereços", description = "Endereços da pessoa e onde ela está agora")
 public class EnderecoController {
 

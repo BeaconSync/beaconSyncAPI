@@ -10,4 +10,9 @@ public record AtualizarPerfilDTO(
         @Pattern(
                 regexp = "[0-9]{10,11}",
                 message = "Telefone com DDD, só números (10 ou 11 dígitos)")
-        String telefone) {}
+        String telefone,
+        Papel papel) {
+    public AtualizarPerfilDTO(String nome, String telefone) {
+        this(nome, telefone, null);
+    }
+}
