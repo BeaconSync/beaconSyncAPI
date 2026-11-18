@@ -5,12 +5,14 @@ API da CitizenTech **BeaconSync** (Global Solution, Java Advanced – FIAP).
 Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risco, e é justamente quem as equipes de resgate não sabem onde está. O BeaconSync é um cadastro prévio de pessoas vulneráveis (idosos acamados, pessoas com deficiência, bebês, dependentes de aparelhos médicos) que, no momento do alerta, vira um mapa por distrito de quem precisa ser resgatado primeiro e de onde a pessoa está de verdade.
 
 > **Vídeo pitch:** _cole aqui o link do YouTube (não listado)_
+>
+> **API publicada:** _cole aqui a URL do Render_ (Swagger em `/swagger-ui.html`)
 
 ## Onde está cada requisito
 
 | Requisito | Onde está no projeto |
 | --- | --- |
-| 01. API REST do domínio | 16 entidades relacionadas, CRUD com Spring Data JPA e paginação ([Endpoints](#endpoints-principais), [Modelagem](#modelagem)) |
+| 01. API REST do domínio | 17 entidades relacionadas, CRUD com Spring Data JPA e paginação ([Endpoints](#endpoints-principais), [Modelagem](#modelagem)) |
 | 02. Validação e erros | Bean Validation nos DTOs e `GlobalExceptionHandler` com respostas padronizadas ([Formato de erro](#formato-padrão-de-erro)) |
 | 03. Segurança | Spring Security + JWT com 4 papéis, endpoints protegidos por papel e refresh token com rotação ([Autenticação](#autenticação-jwt)) |
 | 04. Spring AI | Triagem do pedido de ajuda e boletim do alerta, integrados ao fluxo do resgate ([Spring AI](#funcionalidade-com-spring-ai)) |
@@ -25,8 +27,10 @@ Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risc
 - RabbitMQ: opção **A** do requisito 5
 - Spring AI 2.0 com OpenAI (triagem dos pedidos de ajuda e boletim do órgão)
 - RestClient para a API Python de análise de distrito (IA da disciplina de IoT)
+- Integração opcional com a API .NET do grupo (disponibilidade dos voluntários), ligada por `NET_INTEGRACAO`
 - springdoc-openapi (Swagger)
-- Docker Compose (Oracle Free 23ai + RabbitMQ)
+- Docker Compose (Oracle Free 23ai + RabbitMQ) para rodar localmente
+- Render (API em Docker), Oracle da FIAP e CloudAMQP no deploy
 ## Como rodar
 
 ### Pré-requisitos
@@ -44,6 +48,8 @@ cp .env.example .env        # Windows (PowerShell): copy .env.example .env
 Abra o `.env` e troque as senhas de exemplo. Use só letras e números.
 
 A IA é opcional. Para ligar, use `AI_PROVIDER=openai` e coloque sua chave em `OPENAI_API_KEY`. Com `AI_PROVIDER=none` (padrão), tudo funciona com a triagem por regra e o boletim por modelo de texto.
+
+As integrações com outros serviços do grupo também são opcionais: sem `IA_SERVICE_API_KEY`, só a análise de distrito responde 503; com `NET_INTEGRACAO=false` (padrão), a API não chama o .NET.
 
 ### 2. Suba o banco e o RabbitMQ
 
@@ -95,6 +101,7 @@ Depois suba só o RabbitMQ (`docker compose up -d rabbitmq`) e rode a API normal
 | `OpenAI API key must be set` | `OPENAI_API_KEY` está vazio no `.env`. Sem IA, use `OPENAI_API_KEY=sem-chave`. |
 | Log `IA indisponível na triagem` | A chave é inválida ou a OpenAI não respondeu. A triagem segue pela regra base. |
 | Análise de distrito responde 503 | `IA_SERVICE_API_KEY` está vazia ou a API Python está fora do ar. O resto da API funciona normalmente. |
+| `Voluntariado Indisponível` (503) | `NET_INTEGRACAO=true` sem acesso ao .NET ou com `JWT_SECRET` diferente do .NET. Para rodar sozinho, use `NET_INTEGRACAO=false`. |
 
 ## Segredos e dados sensíveis
 
@@ -104,12 +111,15 @@ Depois suba só o RabbitMQ (`docker compose up -d rabbitmq`) e rode a API normal
 - O JWT é assinado com `JWT_SECRET` (mínimo de 32 bytes UTF-8; a API não sobe com menos). Não há chave `.pem` no projeto.
 - O refresh token é aleatório (256 bits) e o banco guarda só o hash SHA-256 dele, nunca o valor.
 - A chave da API Python (`IA_SERVICE_API_KEY`) fica só no Java e vai no header `X-API-Key`; o app Mobile nunca a recebe.
+- Com `NET_INTEGRACAO=true`, o `JWT_SECRET` precisa ser o mesmo do .NET publicado. Ele fica só nas variáveis do serviço ou no `.env` de quem apresenta, nunca no repositório.
+- A foto da conta é privada: a rota sempre devolve a foto do dono do token, e a imagem é regravada em JPEG sem metadados (EXIF, incluindo localização).
+- No deploy, as variáveis ficam no painel do Render (Environment), não em arquivo.
 - As senhas dos usuários são guardadas só como hash BCrypt, e a dos usuários de teste vem de `SEED_PASSWORD`.
 - O CPF sai mascarado nas respostas (`***.982.247-**`).
 - `.env.example` é o modelo versionado, só com valores de exemplo.
 ## Usuários de teste
 
-Criados automaticamente na subida da API, se ainda não existirem. A senha de todos é o valor de `SEED_PASSWORD` no seu `.env` (no `.env.example`: `Teste123`).
+Criados automaticamente na subida da API, se ainda não existirem. A senha de todos é o valor de `SEED_PASSWORD` no seu `.env` (no `.env.example`: `Teste123`). Na API publicada, a senha é outra e está no arquivo de identificação entregue no Portal.
 
 | E-mail | Papel | Órgão | Para testar |
 | --- | --- | --- | --- |
@@ -156,7 +166,11 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | POST | `/api/v1/auth/login` | público | Devolve o JWT e o refresh token |
 | POST | `/api/v1/auth/refresh` | refresh token no corpo | Troca o refresh por um par novo (rotação) |
 | POST | `/api/v1/auth/logout` | refresh token no corpo | Revoga a sessão de renovação |
-| GET | `/api/v1/usuarios/me` | logado | Perfil do usuário do token |
+| GET | `/api/v1/usuarios/me` | logado | Perfil do usuário do token (com `fotoUrl`) |
+| PUT | `/api/v1/usuarios/me` | logado | Edita nome e telefone da própria conta |
+| PUT | `/api/v1/usuarios/me/foto` | logado | Envia a foto da conta (multipart, campo `arquivo`, JPEG ou PNG até 2 MiB) |
+| GET | `/api/v1/usuarios/me/foto` | logado | Foto da própria conta em JPEG, sem cache |
+| DELETE | `/api/v1/usuarios/me/foto` | logado | Remove a foto da conta |
 | GET | `/api/v1/distritos` | público | Lista paginada dos 96 distritos |
 | POST | `/api/v1/pessoas` | RESPONSAVEL | Cadastra a pessoa com o primeiro endereço (409 se o CPF já existir) |
 | GET | `/api/v1/pessoas` | RESPONSAVEL | Lista paginada das pessoas vinculadas a você |
@@ -182,7 +196,7 @@ Listagens paginadas aceitam `?page=0&size=10&sort=nome,asc`.
 | GET | `/api/v1/notificacoes` | logado | Seus avisos (alerta e andamento do resgate) |
 | PATCH | `/api/v1/notificacoes/{id}/lida` | logado | Marca o aviso como lido |
 | GET | `/api/v1/alertas/{id}/boletim` | AGENTE_ORGAO | Boletim do alerta gerado por IA, com os números brutos |
-| POST | `/api/v1/alertas/{id}/distritos/{distritoId}/analise` | AGENTE_ORGAO | Análise do distrito pela API Python (IoT), com as contagens do Java |
+| POST | `/api/v1/alertas/{id}/distritos/{distritoId}/analise` | AGENTE_ORGAO, VOLUNTARIO | Análise do distrito pela API Python (IoT), com as contagens do Java |
 | GET | `/api/v1/ocorrencias` | AGENTE_ORGAO, PROFISSIONAL | Fila do órgão na ordem de prioridade (`?status=`, `?alertaId=`) |
 | GET | `/api/v1/ocorrencias/{id}` | AGENTE_ORGAO, PROFISSIONAL, VOLUNTARIO | Detalhe do resgate (voluntário só se escalado) |
 | PATCH | `/api/v1/ocorrencias/{id}/prioridade` | AGENTE_ORGAO | Muda a ordem sugerida, com justificativa auditada |
@@ -279,13 +293,28 @@ Quando a família responde "precisa de ajuda" ou "não consegui contato", ela po
 
 Além do Spring AI, a API integra a IA desenvolvida na disciplina de IoT: um serviço Python publicado em `IA_BASE_URL`, que usa o Gemini. Ela **não** é o requisito 04 (que é a triagem e o boletim acima); é um recurso a mais.
 
-`POST /api/v1/alertas/{alertaId}/distritos/{distritoId}/analise` (AGENTE_ORGAO), com `{"pergunta": "Como interpretar a contagem deste distrito?"}`:
+`POST /api/v1/alertas/{alertaId}/distritos/{distritoId}/analise` (AGENTE_ORGAO ou VOLUNTARIO), com `{"pergunta": "Como interpretar a contagem deste distrito?"}`:
 
-1. O Java confere o papel do usuário no banco e se o distrito pertence à área do alerta (404 se não pertencer).
+1. O Java confere o papel do usuário no banco e se o distrito pertence à área do alerta (404 se não pertencer). O voluntário recebe só contagens; a lista de pessoas do distrito continua restrita ao agente.
 2. Conta as situações do distrito (precisa de ajuda, sem contato, pendente, segura, resgatada) com a mesma consulta do mapa.
 3. Envia ao Python só as contagens, o nome do distrito e a pergunta, com a chave no header `X-API-Key`. Nenhum nome, CPF, telefone ou endereço sai do Java.
 4. Confere se a resposta bate com os ids e totais enviados e devolve a análise com as fontes usadas.
    A chamada exige HTTPS, não segue redirecionamentos e tem tempo limite (`IA_CONNECT_TIMEOUT`, `IA_READ_TIMEOUT`). Se o Python falhar, a API responde 502, 503 ou 504 sem repassar o erro externo, e o mapa continua disponível. Sem `IA_SERVICE_API_KEY`, só essa rota responde 503.
+
+## Integração com a API .NET (liga e desliga)
+
+A disponibilidade dos voluntários pode vir da API .NET do grupo (disciplina de .NET). Isso é controlado por uma variável, lida quando a API sobe:
+
+| `NET_INTEGRACAO` | Comportamento | Quando usar |
+| --- | --- | --- |
+| `false` (padrão) | A disponibilidade fica no Java. Nenhuma chamada ao .NET. | Rodar localmente, seguir este README, vídeo de Java |
+| `true` | O Java consulta o .NET ao mostrar o perfil do voluntário, listar disponíveis e escalar; o `PATCH` de disponibilidade é gravado no .NET | Demonstração integrada Java + .NET + Mobile |
+
+Com `true`:
+- o `JWT_SECRET` e o `JWT_ISSUER` precisam ser os mesmos do .NET publicado, porque o Java chama o .NET com um token interno de 60 segundos assinado com esse segredo;
+- cada voluntário precisa ter se cadastrado antes em `/api/v1/voluntarios/me` no .NET (sem isso, o `PATCH` responde 422);
+- na lista de disponíveis, um voluntário cujo .NET não respondeu fica de fora e os profissionais continuam aparecendo; ao escalar, a falha vira 503, sem usar valor antigo.
+  Profissionais mantêm a disponibilidade no Java nos dois modos. Trocar o valor exige reiniciar a API (no Render, salvar a variável já reinicia o serviço). Detalhes e checklist da demonstração em [docs/INTEGRACAO_IA_E_TOKEN.md](docs/INTEGRACAO_IA_E_TOKEN.md); contrato com o app em [docs/CONTRATO-MOBILE.md](docs/CONTRATO-MOBILE.md).
 
 ## Resgate
 
@@ -297,7 +326,7 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 - **Privacidade:** o voluntário vê só o resgate em que foi escalado. Toda consulta de detalhe fica no `AuditLog`.
 ### Como testar o resgate (continuação do fluxo do alerta)
 
-1. Como `voluntario@` e depois como `bombeira@`, `PATCH /api/v1/resgatistas/me/disponibilidade` com `{"disponivel": true, "distritoBaseId": 48}`.
+1. Como `voluntario@` e depois como `bombeira@`, `PATCH /api/v1/resgatistas/me/disponibilidade` com `{"disponivel": true, "distritoBaseId": 48}`. Este roteiro usa `NET_INTEGRACAO=false` (padrão).
 2. Como `agente@`, `GET /api/v1/ocorrencias`: os pedidos de ajuda aparecem na ordem de prioridade, com o resumo da triagem.
 3. `GET /api/v1/resgatistas/disponiveis` lista os dois. Use `POST /api/v1/ocorrencias/{id}/equipe` com `{"resgatistaId": ..., "funcao": "condutor do barco"}` para o voluntário e repita para a bombeira.
 4. `PATCH /api/v1/ocorrencias/{id}/status` com `{"status": "EM_ANDAMENTO"}` e depois `{"status": "CONCLUIDA"}`.
@@ -311,6 +340,7 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 | Celular com Expo Go | `http://IP_DO_COMPUTADOR:8080/api/v1` (o celular e o computador na mesma rede Wi-Fi) |
 | Emulador Android | `http://10.0.2.2:8080/api/v1` |
 | Expo web (navegador) | `http://localhost:8080/api/v1` |
+| Qualquer lugar (API publicada) | `https://<serviço>.onrender.com/api/v1` |
 
 No celular, `localhost` aponta para o próprio celular, por isso é preciso usar o IP do computador. No Windows, o IP aparece em `ipconfig` (linha "Endereço IPv4"). Se o celular não conectar, libere a porta 8080 no Firewall do Windows. O CORS já vem liberado para o Expo web (`CORS_ALLOWED_ORIGINS`).
 
@@ -352,11 +382,12 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 | Agente do órgão | Distrito, fila e boletim | `GET /alertas/{id}/distritos/{d}/pessoas`, `GET /ocorrencias`, `GET /alertas/{id}/boletim` |
 | Agente do órgão | Resgate | `GET /ocorrencias/{id}`, `POST /ocorrencias/{id}/equipe`, `PATCH /ocorrencias/{id}/prioridade`, `PATCH /ocorrencias/{id}/status` |
 | Voluntário e profissional | Disponibilidade e meus resgates | `PATCH /resgatistas/me/disponibilidade`, `GET /ocorrencias/minhas`, `GET /ocorrencias/{id}` |
+| Todos | Perfil e foto | `PUT /usuarios/me`, `PUT`/`GET`/`DELETE /usuarios/me/foto` |
 | Profissional | Etapa do resgate | `PATCH /ocorrencias/{id}/status` |
 
 ## Modelagem
 
-16 entidades (17 tabelas, contando a ligação alerta–distrito) no pacote `br.com.fiap.beaconsync`, com o schema versionado pelo Flyway em `src/main/resources/db/migration`.
+17 entidades (18 tabelas, contando a ligação alerta–distrito) no pacote `br.com.fiap.beaconsync`, com o schema versionado pelo Flyway em `src/main/resources/db/migration`.
 
 | Entidade | Tabela | Papel no domínio |
 | --- | --- | --- |
@@ -374,10 +405,39 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 | ParticipacaoResgate | BS_PARTICIPACAO_RESGATE | Equipe do resgate (N:N com função) |
 | Notificacao / AuditLog | BS_NOTIFICACAO / BS_AUDIT_LOG | Avisos para o app e trilha de auditoria |
 | SessaoRefresh / RefreshToken | BS_SESSAO_REFRESH / BS_REFRESH_TOKEN | Sessão de renovação por login e hash de cada refresh token emitido |
+| FotoPerfil | BS_USUARIO_FOTO | Foto privada da conta, guardada como BLOB (uma por usuário) |
 
 ## Deploy
 
-Não há deploy público. A API roda localmente com Docker Compose, seguindo a seção [Como rodar](#como-rodar).
+A API está publicada no Render (plano gratuito), a partir deste repositório e do `Dockerfile`:
+
+| Parte | Onde roda |
+| --- | --- |
+| API Java | Render, Web Service com Docker |
+| Banco | Oracle da FIAP (`oracle.fiap.com.br`), tabelas com prefixo `BS_` |
+| RabbitMQ | CloudAMQP, plano gratuito, com TLS (porta 5671) |
+| IA | OpenAI (Spring AI) e a API Python do grupo |
+
+**Cuidados do plano gratuito:** o serviço "dorme" depois de 15 minutos sem acesso e leva cerca de um minuto para voltar, mais a subida do Spring. Antes de usar, abra `/actuator/health` e espere `{"status":"UP"}`.
+
+### Variáveis configuradas no Render
+
+Todas ficam em **Environment** no painel do serviço. Nenhuma está no repositório.
+
+| Variável | Valor no deploy |
+| --- | --- |
+| `DB_URL` | `jdbc:oracle:thin:@oracle.fiap.com.br:1521:ORCL` |
+| `DB_USERNAME` / `DB_PASSWORD` | RM e senha do Oracle da FIAP |
+| `RABBITMQ_HOST` / `RABBITMQ_PORT` | Host do CloudAMQP / `5671` |
+| `RABBITMQ_USERNAME` / `RABBITMQ_PASSWORD` / `RABBITMQ_VHOST` | Dados da instância do CloudAMQP (o vhost é igual ao usuário) |
+| `RABBITMQ_SSL` | `true` |
+| `JWT_SECRET` / `JWT_ISSUER` | Segredo aleatório de 32+ caracteres / `beaconsync-api` (iguais aos do .NET se `NET_INTEGRACAO=true`) |
+| `SEED_PASSWORD` / `SEED_DEMO` | Senha dos usuários de teste / `true` |
+| `AI_PROVIDER` / `OPENAI_API_KEY` | `openai` / chave da OpenAI |
+| `IA_BASE_URL` / `IA_SERVICE_API_KEY` | URL e chave da API Python |
+| `NET_INTEGRACAO` / `NET_READ_TIMEOUT` | `false` (ou `true` na demonstração integrada) / `30s` |
+
+O Render define a variável `PORT`, que a API já usa. Atrás do proxy HTTPS do Render, a API respeita os cabeçalhos `X-Forwarded-*`, então o Swagger funciona em `https`.
 
 ## Integrantes
 
