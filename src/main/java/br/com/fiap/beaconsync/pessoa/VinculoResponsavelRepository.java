@@ -17,7 +17,6 @@ public interface VinculoResponsavelRepository extends JpaRepository<VinculoRespo
 
     List<VinculoResponsavel> findByPessoaIdAndStatus(Long pessoaId, StatusVinculo status);
 
-    /** Pedidos pendentes nas pessoas em que o usuário já é responsável ativo. */
     @Query("""
             select v from VinculoResponsavel v
             where v.status = :pendente

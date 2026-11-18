@@ -7,7 +7,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/** Equipe do resgate: N:N entre ocorrência e resgatista, com função e horário. */
 @Entity
 @Table(name = "BS_PARTICIPACAO_RESGATE",
         uniqueConstraints = @UniqueConstraint(columnNames = {"ocorrencia_id", "resgatista_id"}))
@@ -28,7 +27,6 @@ public class ParticipacaoResgate {
     @JoinColumn(name = "resgatista_id", nullable = false)
     private Resgatista resgatista;
 
-    /** Ex.: "condutor do barco", "socorrista". */
     @Column(length = 60)
     private String funcao;
 

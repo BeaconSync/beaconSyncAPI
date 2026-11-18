@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-/** Alerta emitido por um agente do órgão para uma lista de distritos. */
 public record AlertaRequestDTO(
         @NotBlank(message = "O título é obrigatório")
         @Size(max = 120, message = "O título deve ter no máximo 120 caracteres")

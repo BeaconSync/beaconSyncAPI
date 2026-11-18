@@ -11,11 +11,6 @@ import org.hibernate.type.NumericBooleanConverter;
 
 import java.time.LocalDateTime;
 
-/**
- * Situação de uma pessoa em um alerta: uma linha por (alerta, pessoa).
- * Vários responsáveis respondem sobre a mesma linha (vale a mais recente),
- * por isso o pedido de resgate nunca duplica.
- */
 @Entity
 @Table(name = "BS_SITUACAO_ALERTA",
         uniqueConstraints = @UniqueConstraint(columnNames = {"alerta_id", "pessoa_id"}))
@@ -36,7 +31,6 @@ public class SituacaoNoAlerta {
     @JoinColumn(name = "pessoa_id", nullable = false)
     private PessoaVulneravel pessoa;
 
-    /** Endereço onde a pessoa está neste alerta (cópia do endereço atual). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "endereco_id", nullable = false)
     private Endereco endereco;
@@ -45,7 +39,6 @@ public class SituacaoNoAlerta {
     @Column(nullable = false, length = 20)
     private Situacao situacao = Situacao.PENDENTE;
 
-    /** Relato livre do responsável (vai para a triagem, sem nome/CPF/endereço). */
     @Column(name = "descricao_livre", length = 2000)
     private String descricaoLivre;
 
@@ -56,9 +49,6 @@ public class SituacaoNoAlerta {
     @Column(name = "respondido_em")
     private LocalDateTime respondidoEm;
 
-    // ---- Resultado da triagem (IA ou regra base) ----
-
-    /** 1 (baixa) a 5 (crítica). */
     private Integer gravidade;
 
     @Convert(converter = NumericBooleanConverter.class)
@@ -81,7 +71,6 @@ public class SituacaoNoAlerta {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
-    /** Controle de concorrência otimista (dois responsáveis respondendo juntos). */
     @Version
     @Column(nullable = false)
     private Long versao;

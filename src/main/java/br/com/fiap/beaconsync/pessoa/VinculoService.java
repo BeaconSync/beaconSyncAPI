@@ -41,7 +41,6 @@ public class VinculoService {
             vinculo.setPessoa(pessoa);
             vinculo.setUsuario(usuario);
         }
-        // Pedido novo, ou novo pedido depois de uma recusa
         vinculo.setParentesco(dto.parentesco().trim());
         vinculo.setStatus(StatusVinculo.PENDENTE);
         vinculoRepository.save(vinculo);

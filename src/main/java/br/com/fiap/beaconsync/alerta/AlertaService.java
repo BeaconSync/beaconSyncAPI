@@ -51,10 +51,6 @@ public class AlertaService {
     private final AuditoriaService auditoriaService;
     private final EventoPublisher eventoPublisher;
 
-    /**
-     * Emite o alerta: toda pessoa cujo endereço ATUAL está num dos distritos
-     * ganha uma situação PENDENTE. O aviso aos responsáveis sai pelo RabbitMQ.
-     */
     @Transactional
     public AlertaResponseDTO emitir(AlertaRequestDTO dto) {
         Usuario agente = authorizationService.usuarioLogado();
@@ -102,7 +98,6 @@ public class AlertaService {
         return new AlertaResponseDTO(alerta, situacaoRepository.countByAlertaId(id));
     }
 
-    /** Só um agente do órgão que emitiu pode encerrar. */
     @Transactional
     public AlertaResponseDTO encerrar(Long id) {
         Usuario agente = authorizationService.usuarioLogado();
@@ -120,7 +115,6 @@ public class AlertaService {
         return new AlertaResponseDTO(alerta, situacaoRepository.countByAlertaId(id));
     }
 
-    /** O que o responsável vê no app durante o alerta: as pessoas dele que estão na área. */
     @Transactional(readOnly = true)
     public List<SituacaoResponseDTO> minhasSituacoesAtivas() {
         return situacaoRepository
@@ -130,10 +124,6 @@ public class AlertaService {
                 .toList();
     }
 
-    /**
-     * Resposta do responsável. Vale a resposta mais recente: vários responsáveis
-     * respondem sobre a mesma linha, então o pedido de resgate nunca duplica.
-     */
     @Transactional
     public SituacaoResponseDTO responder(Long alertaId, RespostaRequestDTO dto) {
         if (dto.situacao() == Situacao.PENDENTE || dto.situacao() == Situacao.RESGATADA) {
@@ -149,7 +139,6 @@ public class AlertaService {
         PessoaVulneravel pessoa = pessoaRepository.findById(dto.pessoaId())
                 .orElseThrow(() -> new EntityNotFoundException("Pessoa não encontrada."));
 
-        // Confirmação de onde a pessoa está: se mudou, corrige o endereço atual
         if (dto.enderecoId() != null && !dto.enderecoId().equals(idEnderecoAtual(pessoa))) {
             Endereco novoEndereco = enderecoRepository.findById(dto.enderecoId())
                     .filter(endereco -> endereco.getPessoa().getId().equals(pessoa.getId()))
@@ -170,7 +159,6 @@ public class AlertaService {
         situacao.setRespondidoEm(LocalDateTime.now());
 
         if (dto.situacao().geraOcorrencia()) {
-            // A triagem roda de forma assíncrona no consumidor da fila
             eventoPublisher.publicar(RabbitConfig.RK_RESPOSTA_REGISTRADA, situacao.getId());
         } else {
             ocorrenciaService.cancelarSeSolicitada(situacao, responsavel,
@@ -182,10 +170,6 @@ public class AlertaService {
         return new SituacaoResponseDTO(situacao);
     }
 
-    /**
-     * Lista do distrito para o agente, ordenada por prioridade. Nomes e
-     * endereços só aparecem com o alerta ATIVO, e todo acesso fica auditado.
-     */
     @Transactional(readOnly = true)
     public List<PessoaNoDistritoDTO> pessoasDoDistrito(Long alertaId, Long distritoId) {
         Alerta alerta = buscar(alertaId);
@@ -208,10 +192,6 @@ public class AlertaService {
         return lista;
     }
 
-    /**
-     * Chamado quando o endereço atual muda: atualiza as situações nos alertas
-     * ativos e inclui a pessoa se ela entrou numa área em alerta.
-     */
     @Transactional
     public void sincronizarEnderecoAtual(PessoaVulneravel pessoa) {
         Endereco atual = pessoa.getEnderecoAtual();
@@ -228,9 +208,6 @@ public class AlertaService {
         }
     }
 
-    // ---- auxiliares ----
-
-    /** Pede ajuda/sem contato primeiro, depois maior gravidade, risco imediato e mais tempo em aberto. */
     private static final Comparator<PessoaNoDistritoDTO> PRIORIDADE = Comparator
             .comparingInt((PessoaNoDistritoDTO p) -> ordemSituacao(p.situacao()))
             .thenComparing(p -> p.gravidade() != null ? p.gravidade() : 0, Comparator.reverseOrder())

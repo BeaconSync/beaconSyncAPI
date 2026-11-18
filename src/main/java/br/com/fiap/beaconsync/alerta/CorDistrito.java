@@ -3,7 +3,6 @@ package br.com.fiap.beaconsync.alerta;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/** Cor do distrito no mapa. O peso entra no cálculo da prioridade sugerida. */
 @Getter
 @RequiredArgsConstructor
 public enum CorDistrito {

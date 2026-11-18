@@ -22,11 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Boletim do alerta para o agente do órgão. Os números são calculados no
- * banco; o LLM só transforma esses números num texto curto (nunca recebe nomes).
- * Sem IA, o mesmo boletim sai por um modelo de texto.
- */
 @Slf4j
 @Service
 public class BoletimService {

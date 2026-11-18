@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.type.NumericBooleanConverter;
 
-/** Perfil de resgate de um usuário: profissional (ligado a um órgão) ou voluntário. */
 @Entity
 @Table(name = "BS_RESGATISTA")
 @Getter
@@ -29,7 +28,6 @@ public class Resgatista {
     @Column(nullable = false, length = 15)
     private TipoResgatista tipo;
 
-    /** Ex.: "barco, conhece o bairro", "socorrista". */
     @Column(length = 300)
     private String habilidades;
 
@@ -41,7 +39,6 @@ public class Resgatista {
     @JoinColumn(name = "orgao_id")
     private Orgao orgao;
 
-    /** Região onde o voluntário costuma ajudar. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "distrito_base_id")
     private Distrito distritoBase;

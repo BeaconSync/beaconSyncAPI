@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Tudo o que a equipe precisa para o resgate: onde, quem, o que levar e quem chamar. */
 public record OcorrenciaDetalheDTO(
         Long id,
         StatusOcorrencia status,

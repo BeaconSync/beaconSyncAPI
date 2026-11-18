@@ -18,7 +18,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class MapaService {
 
-    /** Situações que ainda contam no mapa (a pessoa não está segura). */
     private static final Set<Situacao> SEM_SEGURANCA =
             EnumSet.of(Situacao.PENDENTE, Situacao.PRECISA_AJUDA, Situacao.SEM_CONTATO);
 
@@ -39,14 +38,12 @@ public class MapaService {
         Alerta alerta = alertaRepository.findById(alertaId)
                 .orElseThrow(() -> new EntityNotFoundException("Alerta não encontrado."));
 
-        // distritoId -> contagem por situação
         Map<Long, Map<Situacao, Long>> contagem = new HashMap<>();
         for (ContagemDistrito linha : situacaoRepository.contarPorDistrito(alertaId, SEM_SEGURANCA)) {
             contagem.computeIfAbsent(linha.getDistritoId(), id -> new HashMap<>())
                     .put(linha.getSituacao(), linha.getTotal());
         }
 
-        // Só os distritos do alerta recebem cor; os de fora não aparecem
         List<MapaDistritoDTO> distritos = alerta.getDistritos().stream()
                 .map(distrito -> {
                     Map<Situacao, Long> porSituacao = contagem.getOrDefault(distrito.getId(), Map.of());
@@ -71,7 +68,6 @@ public class MapaService {
                 alertaId, distritoId, SEM_SEGURANCA));
     }
 
-    /** Faixas configuráveis no application.properties (beaconsync.mapa.*). */
     public CorDistrito cor(long total) {
         if (total >= faixaVermelho) {
             return CorDistrito.VERMELHO;

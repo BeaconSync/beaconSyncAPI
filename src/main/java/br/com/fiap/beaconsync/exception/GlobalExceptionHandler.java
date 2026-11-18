@@ -131,7 +131,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RegraNegocioException.class)
     public ResponseEntity<ErroPadrao> tratarRegraNegocio(RegraNegocioException e, HttpServletRequest request) {
-        // 422: o nome da constante mudou entre versões do Spring, então usamos o código
         return resposta(HttpStatus.valueOf(422), "Regra de Negócio", e.getMessage(), request);
     }
 

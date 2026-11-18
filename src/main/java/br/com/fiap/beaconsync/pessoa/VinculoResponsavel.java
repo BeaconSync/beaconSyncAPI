@@ -8,7 +8,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/** Liga um responsável (usuário) a uma pessoa vulnerável. */
 @Entity
 @Table(name = "BS_VINCULO_RESPONSAVEL",
         uniqueConstraints = @UniqueConstraint(columnNames = {"pessoa_id", "usuario_id"}))
@@ -29,7 +28,6 @@ public class VinculoResponsavel {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    /** Ex.: "filha", "neto", "vizinho". */
     @Column(nullable = false, length = 40)
     private String parentesco;
 

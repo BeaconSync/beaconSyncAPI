@@ -36,7 +36,6 @@ public class IaClient {
             int externo = e.getStatusCode().value();
             if (externo == 504) throw new IaIndisponivelException(504, "A análise demorou para responder. O mapa continua disponível.");
             if (externo == 429 || externo == 503) throw new IaIndisponivelException(503, "Serviço de análise temporariamente indisponível.");
-            // Não repassa corpo/headers externos: um 401 do Python não é erro do JWT do usuário.
             throw new IaIndisponivelException(502, "Falha na comunicação com o serviço de análise.");
         } catch (ResourceAccessException e) {
             for (Throwable causa = e; causa != null; causa = causa.getCause()) {

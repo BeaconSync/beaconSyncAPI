@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Alerta de enchente emitido por um órgão para uma lista de distritos. */
 @Entity
 @Table(name = "BS_ALERTA")
 @Getter

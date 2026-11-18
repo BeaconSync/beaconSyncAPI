@@ -20,7 +20,6 @@ public class EventoRabbitPublisher {
             amqpTemplate.convertAndSend(RabbitConfig.EXCHANGE, evento.routingKey(), String.valueOf(evento.id()));
             log.info("Evento publicado: {} (id {})", evento.routingKey(), evento.id());
         } catch (Exception e) {
-            // O dado já foi gravado; a falha do broker não deve virar erro 500 para o app
             log.error("Falha ao publicar {} (id {}) no RabbitMQ", evento.routingKey(), evento.id(), e);
         }
     }

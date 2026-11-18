@@ -49,10 +49,6 @@ public class EnderecoService {
         return new EnderecoResponseDTO(endereco, atualId);
     }
 
-    /**
-     * Define onde a pessoa está agora. É esse endereço que entra no mapa e no
-     * resgate; a troca também atualiza os alertas ativos.
-     */
     @Transactional
     public PessoaResponseDTO definirAtual(Long pessoaId, EnderecoAtualRequestDTO dto) {
         authorizationService.exigirVinculoAtivo(pessoaId);
@@ -82,7 +78,6 @@ public class EnderecoService {
                 enderecoId, "Endereço da pessoa " + pessoaId);
     }
 
-    /** Monta um endereço novo a partir do DTO (usado também no cadastro da pessoa). */
     public Endereco montar(EnderecoRequestDTO dto) {
         Distrito distrito = distritoRepository.findById(dto.distritoId())
                 .orElseThrow(() -> new RegraNegocioException("Distrito " + dto.distritoId() + " não existe."));

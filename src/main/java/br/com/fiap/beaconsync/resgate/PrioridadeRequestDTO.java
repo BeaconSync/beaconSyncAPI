@@ -5,10 +5,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/**
- * O agente muda a ordem sugerida. prioridadeManual: 1 = primeiro da fila;
- * null volta para a ordem sugerida pelo sistema.
- */
 public record PrioridadeRequestDTO(
         @Min(value = 1, message = "A prioridade manual começa em 1")
         @Max(value = 9999, message = "A prioridade manual vai até 9999")

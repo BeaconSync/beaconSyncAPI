@@ -17,22 +17,16 @@ public interface PessoaVulneravelRepository extends JpaRepository<PessoaVulnerav
 
     boolean existsByCpf(String cpf);
 
-    /** Pessoas em que o usuário é responsável com o status informado (normalmente ATIVO). */
     @Query("select p from PessoaVulneravel p join p.vinculos v "
             + "where v.usuario.id = :usuarioId and v.status = :status")
     Page<PessoaVulneravel> findVinculadas(@Param("usuarioId") Long usuarioId,
                                           @Param("status") StatusVinculo status,
                                           Pageable pageable);
 
-    /** Pessoas cujo endereço ATUAL está em um dos distritos (quem entra no alerta). */
     @Query("select p from PessoaVulneravel p join fetch p.enderecoAtual e "
             + "where e.distrito.id in :distritoIds")
     List<PessoaVulneravel> findComEnderecoAtualNosDistritos(@Param("distritoIds") Collection<Long> distritoIds);
 
-    /**
-     * Exclusão direta no banco: o ON DELETE CASCADE das FKs remove endereços,
-     * vínculos e situações em alertas da pessoa num único comando.
-     */
     @Modifying
     @Query("delete from PessoaVulneravel p where p.id = :id")
     int excluirPorId(@Param("id") Long id);

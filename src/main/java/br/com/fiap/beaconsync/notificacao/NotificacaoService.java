@@ -20,10 +20,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Grava os avisos que o app Mobile lê em GET /notificacoes.
- * Os métodos notificar* são chamados pelo NotificacaoListener (RabbitMQ).
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,7 +32,6 @@ public class NotificacaoService {
     private final VinculoResponsavelRepository vinculoRepository;
     private final AuthorizationService authorizationService;
 
-    /** Cada responsável por uma pessoa da área recebe o aviso para confirmar a situação. */
     @Transactional
     public void notificarAlertaEmitido(Long alertaId) {
         Alerta alerta = alertaRepository.findById(alertaId).orElse(null);
@@ -54,7 +49,6 @@ public class NotificacaoService {
         log.info("Alerta {}: {} avisos gravados.", alertaId, total);
     }
 
-    /** A cada mudança de etapa do resgate, a família recebe uma atualização. */
     @Transactional
     public void notificarMudancaOcorrencia(Long ocorrenciaId) {
         Ocorrencia ocorrencia = ocorrenciaRepository.findById(ocorrenciaId).orElse(null);
@@ -74,7 +68,6 @@ public class NotificacaoService {
         avisarResponsaveis(pessoa, "Resgate de " + nome, mensagem);
     }
 
-    /** Avisa o resgatista que ele foi escalado (chamado direto, na mesma transação da escala). */
     @Transactional
     public void notificarEscala(Usuario resgatista, Ocorrencia ocorrencia) {
         criar(resgatista, "Você foi escalado para um resgate",

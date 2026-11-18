@@ -8,7 +8,6 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
-/** Consome alerta.emitido e ocorrencia.status-alterado e grava os avisos lidos pelo app. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-/** Consome resposta.registrada: faz a triagem e abre (ou atualiza) a ocorrência. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

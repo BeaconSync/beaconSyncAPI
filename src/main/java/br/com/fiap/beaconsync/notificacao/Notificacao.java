@@ -9,7 +9,6 @@ import org.hibernate.type.NumericBooleanConverter;
 
 import java.time.LocalDateTime;
 
-/** Aviso gravado pela API e lido pelo app Mobile (GET /notificacoes). */
 @Entity
 @Table(name = "BS_NOTIFICACAO")
 @Getter

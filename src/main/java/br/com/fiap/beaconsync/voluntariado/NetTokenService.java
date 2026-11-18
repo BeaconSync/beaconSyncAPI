@@ -36,7 +36,6 @@ public class NetTokenService {
                         .audience(List.of("beaconsync-net"))
                         .claim("purpose", "voluntariado-interno")
                         .build();
-        // Sem role: o validador da API Java rejeita o uso deste token em suas próprias rotas.
         return encoder.encode(
                         JwtEncoderParameters.from(
                                 JwsHeader.with(MacAlgorithm.HS256).build(), claims))

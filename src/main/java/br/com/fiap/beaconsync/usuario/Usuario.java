@@ -39,7 +39,6 @@ public class Usuario {
     @Column(nullable = false, length = 20)
     private Papel papel;
 
-    /** Obrigatório para PROFISSIONAL e AGENTE_ORGAO. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "orgao_id")
     private Orgao orgao;

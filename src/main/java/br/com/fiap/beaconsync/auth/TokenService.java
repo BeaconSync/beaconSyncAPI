@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Gera o JWT do login. sub = id do usuário; role = papel; orgaoId quando houver. */
 @Service
 public class TokenService {
 

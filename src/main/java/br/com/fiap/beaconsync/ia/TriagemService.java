@@ -23,16 +23,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Triagem do pedido de ajuda, executada pelo consumidor da fila de triagem.
- *
- * 1. Lê os dados numa transação curta.
- * 2. Chama o LLM FORA da transação (não segura conexão do banco durante a IA).
- * 3. Grava o resultado e abre a ocorrência numa segunda transação curta.
- *
- * Regra de segurança: a IA pode SUBIR a gravidade da regra base, nunca baixar.
- * Sem IA (ou se ela falhar), vale só a regra base.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -60,12 +50,10 @@ public class TriagemService {
             log.warn("Situação {} não existe mais; triagem ignorada.", situacaoId);
             return null;
         }
-        // A família pode ter respondido "está segura" depois do pedido
         if (!situacao.getSituacao().geraOcorrencia()) {
             log.info("Situação {} não pede mais ajuda; triagem ignorada.", situacaoId);
             return null;
         }
-        // Idempotência: mensagem repetida para a mesma resposta não refaz a triagem
         if (situacao.getTriadoEm() != null && situacao.getRespondidoEm() != null
                 && !situacao.getTriadoEm().isBefore(situacao.getRespondidoEm())) {
             log.info("Situação {} já triada para esta resposta.", situacaoId);
@@ -85,7 +73,6 @@ public class TriagemService {
 
     private void gravar(Long situacaoId, TriagemResultado resultadoIa) {
         SituacaoNoAlerta situacao = situacaoRepository.findById(situacaoId).orElse(null);
-        // Pode ter mudado enquanto a IA respondia
         if (situacao == null || !situacao.getSituacao().geraOcorrencia()) {
             return;
         }
@@ -101,7 +88,6 @@ public class TriagemService {
                 situacao.getGravidade());
     }
 
-    /** A IA complementa a regra base: gravidade nunca abaixo da base; risco e necessidades somam. */
     TriagemResultado combinar(TriagemResultado base, TriagemResultado ia) {
         int gravidade = Math.max(base.gravidade(), Math.max(1, Math.min(5, ia.gravidade())));
 
@@ -120,7 +106,6 @@ public class TriagemService {
                 new ArrayList<>(necessidades), resumo);
     }
 
-    /** Gravidade pelo tipo de vulnerabilidade; "sem contato" soma 1 (máximo 5). */
     TriagemResultado regraBase(SituacaoNoAlerta situacao) {
         PessoaVulneravel pessoa = situacao.getPessoa();
         int gravidade = switch (pessoa.getTipoVulnerabilidade()) {

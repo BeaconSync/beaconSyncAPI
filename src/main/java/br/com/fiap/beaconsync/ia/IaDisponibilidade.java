@@ -4,11 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/**
- * Diz se a IA está ligada: AI_PROVIDER=openai e uma chave de verdade.
- * Desligada, a triagem usa a regra base e o boletim usa o modelo de texto,
- * então o projeto roda mesmo sem chave da OpenAI.
- */
 @Slf4j
 @Component
 public class IaDisponibilidade {

@@ -2,7 +2,6 @@ package br.com.fiap.beaconsync.alerta;
 
 import java.time.LocalDateTime;
 
-/** Situação de uma pessoa em um alerta, como o responsável vê no app. */
 public record SituacaoResponseDTO(
         Long situacaoId,
         Long alertaId,

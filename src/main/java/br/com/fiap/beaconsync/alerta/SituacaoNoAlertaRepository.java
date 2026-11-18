@@ -23,7 +23,6 @@ public interface SituacaoNoAlertaRepository extends JpaRepository<SituacaoNoAler
     long countByAlertaIdAndEnderecoDistritoIdAndSituacaoIn(Long alertaId, Long distritoId,
                                                            Collection<Situacao> situacoes);
 
-    /** Contagem do mapa: só o endereço onde a pessoa está neste alerta conta. */
     @Query("""
             select s.endereco.distrito.id as distritoId, s.situacao as situacao, count(s) as total
             from SituacaoNoAlerta s
@@ -32,7 +31,6 @@ public interface SituacaoNoAlertaRepository extends JpaRepository<SituacaoNoAler
     List<ContagemDistrito> contarPorDistrito(@Param("alertaId") Long alertaId,
                                              @Param("situacoes") Collection<Situacao> situacoes);
 
-    /** Boletim: pessoas sem segurança de certos tipos (ex.: acamados), por distrito. */
     @Query("""
             select s.endereco.distrito.id as distritoId, count(s) as total
             from SituacaoNoAlerta s
@@ -43,7 +41,6 @@ public interface SituacaoNoAlertaRepository extends JpaRepository<SituacaoNoAler
                                                      @Param("situacoes") Collection<Situacao> situacoes,
                                                      @Param("tipos") Collection<TipoVulnerabilidade> tipos);
 
-    /** Situações em alertas ativos das pessoas de quem o usuário é responsável. */
     @Query("""
             select s from SituacaoNoAlerta s
             where s.alerta.status = :statusAlerta

@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class PrioridadeService {
 
-    /** Gravidade usada enquanto a triagem ainda não terminou. */
     private static final int GRAVIDADE_PADRAO = 3;
 
     private final MapaService mapaService;

@@ -42,7 +42,6 @@ public class AuthorizationService {
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + papel.name()));
     }
 
-    /** Lança 403 se o usuário logado não for responsável ATIVO pela pessoa. */
     public void exigirVinculoAtivo(Long pessoaId) {
         boolean vinculado = vinculoRepository.existsByPessoaIdAndUsuarioIdAndStatus(
                 pessoaId, usuarioLogadoId(), StatusVinculo.ATIVO);

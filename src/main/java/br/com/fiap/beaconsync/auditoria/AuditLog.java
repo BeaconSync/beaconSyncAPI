@@ -8,7 +8,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/** Registro de quem acessou ou alterou dados sensíveis, e quando. */
 @Entity
 @Table(name = "BS_AUDIT_LOG")
 @Getter
@@ -20,12 +19,10 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Nulo quando a ação é do próprio sistema (ex.: consumidor de evento). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
 
-    /** Ex.: CRIAR, ALTERAR, EXCLUIR, CONSULTAR_DADOS_PESSOAIS. */
     @Column(nullable = false, length = 30)
     private String acao;
 

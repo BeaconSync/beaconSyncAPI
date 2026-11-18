@@ -24,10 +24,6 @@ public class PessoaService {
     private final AuditoriaService auditoriaService;
     private final AlertaService alertaService;
 
-    /**
-     * Registro único: se o CPF já existe, não cria outro registro. Devolve 409
-     * com o id da pessoa para o app oferecer o pedido de vínculo.
-     */
     @Transactional
     public PessoaResponseDTO cadastrar(PessoaRequestDTO dto) {
         String cpf = somenteDigitos(dto.cpf());
@@ -56,11 +52,8 @@ public class PessoaService {
         vinculo.setStatus(StatusVinculo.ATIVO);
         pessoa.getVinculos().add(vinculo);
 
-        // Grava primeiro (gera os ids) e só depois aponta o endereço atual,
-        // por causa da referência circular pessoa <-> endereço
         pessoaRepository.saveAndFlush(pessoa);
         pessoa.setEnderecoAtual(endereco);
-        // Cadastro feito durante um alerta ativo na área: a pessoa já entra no alerta
         alertaService.sincronizarEnderecoAtual(pessoa);
 
         auditoriaService.registrar(responsavel.getId(), "CRIAR", "PESSOA_VULNERAVEL", pessoa.getId(),
@@ -68,7 +61,6 @@ public class PessoaService {
         return new PessoaResponseDTO(pessoa);
     }
 
-    /** Lista só as pessoas em que o usuário logado é responsável ativo. */
     @Transactional(readOnly = true)
     public Page<PessoaResponseDTO> listarMinhas(Pageable pageable) {
         return pessoaRepository
@@ -78,8 +70,6 @@ public class PessoaService {
 
     @Transactional(readOnly = true)
     public PessoaResponseDTO buscarPorId(Long id) {
-        // Checa o vínculo antes de buscar: quem não é responsável recebe 403,
-        // sem descobrir se o id existe
         authorizationService.exigirVinculoAtivo(id);
         return new PessoaResponseDTO(buscar(id));
     }

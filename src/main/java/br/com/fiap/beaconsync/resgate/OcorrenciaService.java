@@ -18,7 +18,6 @@ public class OcorrenciaService {
     private final PrioridadeService prioridadeService;
     private final EventoPublisher eventoPublisher;
 
-    /** Chamado pela triagem: abre o pedido de resgate ou reabre/recalcula um existente. */
     @Transactional
     public Ocorrencia abrirOuAtualizar(SituacaoNoAlerta situacao) {
         Ocorrencia ocorrencia = ocorrenciaRepository.findBySituacaoId(situacao.getId()).orElse(null);
@@ -41,7 +40,6 @@ public class OcorrenciaService {
         return ocorrencia;
     }
 
-    /** A família avisou que a pessoa está segura: cancela o pedido que ainda não saiu. */
     @Transactional
     public void cancelarSeSolicitada(SituacaoNoAlerta situacao, Usuario usuario, String motivo) {
         ocorrenciaRepository.findBySituacaoId(situacao.getId())

@@ -1,6 +1,5 @@
 package br.com.fiap.beaconsync.usuario;
 
-/** Dados públicos do usuário. Nunca inclui o hash da senha. */
 public record UsuarioResponseDTO(
         Long id,
         String nome,

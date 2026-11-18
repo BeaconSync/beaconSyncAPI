@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Lista os 96 distritos de SP (público: é dado de referência para o cadastro de endereço). */
 @RestController
 @RequestMapping("/api/v1/distritos")
 @RequiredArgsConstructor

@@ -21,7 +21,6 @@ public class DisponibilidadeService {
                 : "DESLIGADA (disponibilidade dos voluntários fica no Java)");
     }
 
-    /** Com a integração ligada, falha no .NET vira 503: nunca usa um valor antigo. */
     public boolean disponivel(Resgatista resgatista) {
         if (usaNet(resgatista)) {
             return voluntariado.disponivel(resgatista.getUsuario().getId());

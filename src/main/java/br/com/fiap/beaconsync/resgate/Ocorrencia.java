@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Pedido de resgate acompanhado por um órgão até o fim. */
 @Entity
 @Table(name = "BS_OCORRENCIA")
 @Getter
@@ -36,11 +35,9 @@ public class Ocorrencia {
     @Column(nullable = false, length = 15)
     private StatusOcorrencia status = StatusOcorrencia.SOLICITADA;
 
-    /** Ordem sugerida pelo sistema (0 a 100). */
     @Column(name = "score_prioridade", nullable = false, precision = 5, scale = 2)
     private BigDecimal scorePrioridade = BigDecimal.ZERO;
 
-    /** Ordem definida pelo agente; quando preenchida, vence o score. */
     @Column(name = "prioridade_manual")
     private Integer prioridadeManual;
 

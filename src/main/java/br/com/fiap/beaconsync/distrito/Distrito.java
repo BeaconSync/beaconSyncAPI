@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Um dos 96 distritos oficiais de São Paulo (carregados pela migration V2). */
 @Entity
 @Table(name = "BS_DISTRITO")
 @Getter

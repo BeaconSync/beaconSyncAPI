@@ -12,15 +12,12 @@ public interface OcorrenciaRepository extends JpaRepository<Ocorrencia, Long> {
 
     Optional<Ocorrencia> findBySituacaoId(Long situacaoId);
 
-    /** Fila do órgão: ocorrências nas etapas informadas. */
     List<Ocorrencia> findByOrgaoIdAndStatusIn(Long orgaoId, Collection<StatusOcorrencia> status);
 
-    /** Resgates em que o usuário foi escalado (profissional ou voluntário). */
     @Query("select p.ocorrencia from ParticipacaoResgate p "
             + "where p.resgatista.usuario.id = :usuarioId order by p.entrouEm desc")
     List<Ocorrencia> findDoResgatista(@Param("usuarioId") Long usuarioId);
 
-    /** Boletim: ocorrências do alerta por distrito e etapa. */
     @Query("""
             select o.situacao.endereco.distrito.id as distritoId, o.status as status, count(o) as total
             from Ocorrencia o

@@ -6,7 +6,6 @@ import br.com.fiap.beaconsync.pessoa.TipoVulnerabilidade;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** Linha da fila de resgates do órgão. */
 public record OcorrenciaResumoDTO(
         Long id,
         StatusOcorrencia status,

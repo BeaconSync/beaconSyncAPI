@@ -340,7 +340,7 @@ Cada pedido de ajuda vira uma ocorrência do órgão que emitiu o alerta.
 | Celular com Expo Go | `http://IP_DO_COMPUTADOR:8080/api/v1` (o celular e o computador na mesma rede Wi-Fi) |
 | Emulador Android | `http://10.0.2.2:8080/api/v1` |
 | Expo web (navegador) | `http://localhost:8080/api/v1` |
-| Qualquer lugar (API publicada) | `https://<serviço>.onrender.com/api/v1` |
+| Qualquer lugar (API publicada) | `https://beaconsync-api.onrender.com/api/v1` |
 
 No celular, `localhost` aponta para o próprio celular, por isso é preciso usar o IP do computador. No Windows, o IP aparece em `ipconfig` (linha "Endereço IPv4"). Se o celular não conectar, libere a porta 8080 no Firewall do Windows. O CORS já vem liberado para o Expo web (`CORS_ALLOWED_ORIGINS`).
 
@@ -409,7 +409,7 @@ const pessoas = await fetch(`${API}/pessoas?page=0&size=10`, {
 
 ## Deploy
 
-A API está publicada no Render (plano gratuito), a partir deste repositório e do `Dockerfile`:
+A entrega de Java roda localmente, seguindo [Como rodar](#como-rodar). A versão publicada no Render (plano gratuito, a partir deste repositório e do `Dockerfile`) serve para o app Mobile, para testes rápidos e para a integração com a API .NET:
 
 | Parte | Onde roda |
 | --- | --- |

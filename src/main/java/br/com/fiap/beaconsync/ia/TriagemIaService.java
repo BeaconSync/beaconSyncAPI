@@ -7,13 +7,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/**
- * Triagem do pedido de ajuda com LLM (Spring AI). Transforma o relato livre
- * da família em gravidade, risco imediato, necessidades e um resumo para a
- * equipe, com saída estruturada no record TriagemResultado.
- * Qualquer falha (sem chave, timeout, resposta inválida) devolve vazio e a
- * triagem segue pela regra base.
- */
 @Slf4j
 @Service
 public class TriagemIaService {
