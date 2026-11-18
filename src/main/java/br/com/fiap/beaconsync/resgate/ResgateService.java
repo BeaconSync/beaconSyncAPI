@@ -14,6 +14,8 @@ import br.com.fiap.beaconsync.pessoa.VinculoResponsavelRepository;
 import br.com.fiap.beaconsync.usuario.Papel;
 import br.com.fiap.beaconsync.usuario.Usuario;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -54,6 +56,7 @@ public class ResgateService {
             .thenComparing(OcorrenciaResumoDTO::scorePrioridade, Comparator.reverseOrder())
             .thenComparing(OcorrenciaResumoDTO::minutosEmAberto, Comparator.reverseOrder());
 
+    private final EntityManager entityManager;
     private final OcorrenciaRepository ocorrenciaRepository;
     private final ResgatistaRepository resgatistaRepository;
     private final ParticipacaoResgateRepository participacaoRepository;
@@ -122,6 +125,8 @@ public class ResgateService {
         }
         Resgatista resgatista = resgatistaRepository.findById(dto.resgatistaId())
                 .orElseThrow(() -> new EntityNotFoundException("Resgatista não encontrado."));
+        // O mesmo lock usado na troca de perfil impede uma escala concorrente.
+        entityManager.refresh(resgatista.getUsuario(), LockModeType.PESSIMISTIC_WRITE);
         if (!Boolean.TRUE.equals(resgatista.getUsuario().getAtivo())) {
             throw new RegraNegocioException("Resgatista inativo.");
         }

@@ -13,7 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/alertas")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('RESPONSAVEL')")
+@PreAuthorize("hasAnyRole('RESPONSAVEL', 'VOLUNTARIO')")
 @Tag(name = "Respostas ao alerta", description = "O responsável confirma onde a pessoa está e se está segura")
 public class RespostaAlertaController {
 

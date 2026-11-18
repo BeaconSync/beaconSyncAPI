@@ -1,6 +1,8 @@
 package br.com.fiap.beaconsync.resgate;
 
 import br.com.fiap.beaconsync.voluntariado.NetIndisponivelException;
+import br.com.fiap.beaconsync.usuario.Papel;
+import br.com.fiap.beaconsync.exception.RegraNegocioException;
 import br.com.fiap.beaconsync.voluntariado.NetProperties;
 import br.com.fiap.beaconsync.voluntariado.VoluntariadoClient;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ public class DisponibilidadeService {
     }
 
     public boolean disponivel(Resgatista resgatista) {
+        if (voluntarioDesativado(resgatista)) return false;
         if (usaNet(resgatista)) {
             return voluntariado.disponivel(resgatista.getUsuario().getId());
         }
@@ -38,6 +41,9 @@ public class DisponibilidadeService {
     }
 
     public boolean alterar(Resgatista resgatista, boolean disponivel) {
+        if (disponivel && voluntarioDesativado(resgatista)) {
+            throw new RegraNegocioException("Mude seu perfil para VOLUNTARIO antes de ficar disponível.");
+        }
         if (usaNet(resgatista)) {
             return voluntariado
                     .alterarDisponibilidade(resgatista.getUsuario().getId(), disponivel)
@@ -45,6 +51,24 @@ public class DisponibilidadeService {
         }
         resgatista.setDisponivel(disponivel);
         return disponivel;
+    }
+
+    public void pausarParaTrocaDePerfil(Resgatista resgatista) {
+        if (usaNet(resgatista)) {
+            Long usuarioId = resgatista.getUsuario().getId();
+            if (voluntariado.consultar(usuarioId).isPresent()) {
+                var perfil = voluntariado.alterarDisponibilidade(usuarioId, false);
+                if (!Boolean.FALSE.equals(perfil.disponivelParaAjuda())) {
+                    throw new NetIndisponivelException();
+                }
+            }
+        }
+        resgatista.setDisponivel(false);
+    }
+
+    private boolean voluntarioDesativado(Resgatista resgatista) {
+        return resgatista.getTipo() == TipoResgatista.VOLUNTARIO
+                && resgatista.getUsuario().getPapel() != Papel.VOLUNTARIO;
     }
 
     private boolean usaNet(Resgatista resgatista) {
