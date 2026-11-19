@@ -31,6 +31,7 @@ class PermissoesAcompanhamentoTest {
         contexto.registerBean(PessoaService.class, () -> mock(PessoaService.class));
         contexto.registerBean(EnderecoService.class, () -> mock(EnderecoService.class));
         contexto.registerBean(VinculoService.class, () -> mock(VinculoService.class));
+        contexto.registerBean(RemoverMeuVinculoService.class, () -> mock(RemoverMeuVinculoService.class));
         contexto.registerBean(MinhasSolicitacoesService.class, () -> mock(MinhasSolicitacoesService.class));
         contexto.registerBean(AlertaService.class, () -> mock(AlertaService.class));
         contexto.register(PessoaController.class, EnderecoController.class,
@@ -49,6 +50,7 @@ class PermissoesAcompanhamentoTest {
             assertDoesNotThrow(() -> contexto.getBean(PessoaController.class).buscarPorId(1L));
             assertDoesNotThrow(() -> contexto.getBean(EnderecoController.class).listar(1L));
             assertDoesNotThrow(() -> contexto.getBean(VinculoController.class).pendentes());
+            assertEquals(204, contexto.getBean(VinculoController.class).removerMeuVinculo(1L).getStatusCode().value());
             assertDoesNotThrow(() -> contexto.getBean(VinculoController.class).minhasSolicitacoes(0, 50));
             assertDoesNotThrow(() -> contexto.getBean(RespostaAlertaController.class).minhasSituacoes());
         }
@@ -59,6 +61,7 @@ class PermissoesAcompanhamentoTest {
         assertThrows(AccessDeniedException.class, () -> contexto.getBean(PessoaController.class).buscarPorId(1L));
         assertThrows(AccessDeniedException.class, () -> contexto.getBean(EnderecoController.class).listar(1L));
         assertThrows(AccessDeniedException.class, () -> contexto.getBean(VinculoController.class).pendentes());
+        assertThrows(AccessDeniedException.class, () -> contexto.getBean(VinculoController.class).removerMeuVinculo(1L));
         assertThrows(AccessDeniedException.class, () -> contexto.getBean(VinculoController.class).minhasSolicitacoes(0, 50));
         assertThrows(AccessDeniedException.class, () -> contexto.getBean(RespostaAlertaController.class).minhasSituacoes());
     }

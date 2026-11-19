@@ -13,6 +13,10 @@ import java.util.Optional;
 
 public interface PessoaVulneravelRepository extends JpaRepository<PessoaVulneravel, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PessoaVulneravel p where p.id = :id")
+    Optional<PessoaVulneravel> buscarParaRemoverVinculo(@Param("id") Long id);
+
     Optional<PessoaVulneravel> findByCpf(String cpf);
 
     boolean existsByCpf(String cpf);
