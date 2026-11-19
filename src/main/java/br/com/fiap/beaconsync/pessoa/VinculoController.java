@@ -20,6 +20,15 @@ import org.springframework.data.domain.Page;
 public class VinculoController {
 
     private final VinculoService vinculoService;
+    private final RemoverMeuVinculoService removerMeuVinculoService;
+
+    @DeleteMapping("/pessoas/{pessoaId}/vinculos/me")
+    @Operation(summary = "Remove somente seu vínculo, mantendo outro responsável ativo")
+    public ResponseEntity<Void> removerMeuVinculo(@PathVariable("pessoaId") Long pessoaId) {
+        removerMeuVinculoService.remover(pessoaId);
+        return ResponseEntity.noContent().build();
+    }
+
     private final MinhasSolicitacoesService minhasSolicitacoesService;
 
     @GetMapping("/vinculos/minhas-solicitacoes")

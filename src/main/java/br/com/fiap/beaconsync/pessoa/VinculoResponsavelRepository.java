@@ -11,6 +11,8 @@ public interface VinculoResponsavelRepository extends JpaRepository<VinculoRespo
 
     Optional<VinculoResponsavel> findByPessoaIdAndUsuarioId(Long pessoaId, Long usuarioId);
 
+    long countByPessoaIdAndStatus(Long pessoaId, StatusVinculo status);
+
     boolean existsByPessoaIdAndUsuarioIdAndStatus(Long pessoaId, Long usuarioId, StatusVinculo status);
 
     List<VinculoResponsavel> findByPessoaIdOrderByCriadoEmAsc(Long pessoaId);
