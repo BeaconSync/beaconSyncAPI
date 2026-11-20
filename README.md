@@ -5,7 +5,9 @@ API da CitizenTech **BeaconSync** (Global Solution, Java Advanced – FIAP).
 Em uma enchente, quem não consegue sair de casa sozinho é quem mais corre risco, e é justamente quem as equipes de resgate não sabem onde está. O BeaconSync é um cadastro prévio de pessoas vulneráveis (idosos acamados, pessoas com deficiência, bebês, dependentes de aparelhos médicos) que, no momento do alerta, vira um mapa por distrito de quem precisa ser resgatado primeiro e de onde a pessoa está de verdade.
 
 > **Vídeo pitch:** https://youtu.be/uDvaUFjJfP8
-> **Vídeo de apresentação:** 
+> 
+> **Vídeo de apresentação:**
+> 
 > **API publicada:** https://beaconsync-api.onrender.com/swagger-ui/index.html#/
 
 ## Onde está cada requisito
